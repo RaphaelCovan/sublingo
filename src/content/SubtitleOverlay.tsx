@@ -6,28 +6,46 @@ interface SubtitleOverlayProps {
 }
 
 const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({ primaryText, secondaryText }) => {
-  // If both are empty, don't show the box
   if (!primaryText && !secondaryText) return null;
 
   return (
     <div style={{
-      padding: '12px 24px',
-      background: 'rgba(0, 0, 0, 0.75)',
+      padding: '16px 32px',
+      background: 'rgba(8, 8, 8, 0.85)', // Slightly darker
       color: 'white',
-      borderRadius: '12px',
+      borderRadius: '16px',
       textAlign: 'center',
-      backdropFilter: 'blur(4px)', // Modern "Apple" style
-      transition: 'all 0.2s ease',
+      backdropFilter: 'blur(8px)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      maxWidth: '80vw', // Don't let it get too wide
+      transition: 'all 0.1s ease-out',
     }}>
-      {/* Primary Subtitle (Large) */}
-      <div style={{ fontSize: '24px', fontWeight: '500', marginBottom: '4px' }}>
-        {primaryText}
-      </div>
+      {/* Primary (Original) Language */}
+      <div 
+        style={{ 
+          fontSize: '28px', 
+          fontWeight: '600', 
+          lineHeight: '1.2',
+          textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+        }}
+        dangerouslySetInnerHTML={{ __html: primaryText }}
+      />
       
-      {/* Secondary Subtitle (Small/Gray) */}
-      <div style={{ fontSize: '18px', color: '#ccc' }}>
-        {secondaryText}
-      </div>
+      {/* Secondary (Learning) Language */}
+      {secondaryText && (
+        <div 
+          style={{ 
+            fontSize: '20px', 
+            color: '#FFD700', // Gold color for the learning track (very readable)
+            marginTop: '8px',
+            fontWeight: '400',
+            opacity: 0.9,
+            lineHeight: '1.2'
+          }}
+          dangerouslySetInnerHTML={{ __html: secondaryText }}
+        />
+      )}
     </div>
   );
 };

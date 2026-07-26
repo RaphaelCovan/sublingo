@@ -1,20 +1,28 @@
-import type { SubtitleEntry } from '../types/subtitles.ts';
+import type { SubtitleEntry } from '../types/subtitles';
 
 export class SubtitleEngine {
-  private entries: SubtitleEntry[] = [];
+  private primaryEntries: SubtitleEntry[] = [];
+  private secondaryEntries: SubtitleEntry[] = [];
 
-  setEntries(entries: SubtitleEntry[]) {
-    this.entries = entries;
+  setPrimaryEntries(entries: SubtitleEntry[]) {
+    this.primaryEntries = entries;
   }
 
-  /**
-   * Finds the subtitle entry that matches the current time.
-   * Optimization: In a real product, we'd use a Binary Search here 
-   * for performance, but for the MVP, a simple .find is okay.
-   */
-  getActiveEntry(currentTime: number): SubtitleEntry | null {
-    return this.entries.find(
-      (entry) => currentTime >= entry.start && currentTime <= entry.end
-    ) || null;
+  setSecondaryEntries(entries: SubtitleEntry[]) {
+    this.secondaryEntries = entries;
+  }
+
+  getActiveEntries(currentTime: number) {
+    const primary = this.primaryEntries.find(
+      (e) => currentTime >= e.start && currentTime <= e.end
+    );
+    const secondary = this.secondaryEntries.find(
+      (e) => currentTime >= e.start && currentTime <= e.end
+    );
+
+    return {
+      primaryText: primary ? primary.text : '',
+      secondaryText: secondary ? secondary.text : ''
+    };
   }
 }
