@@ -1,17 +1,33 @@
 import React from 'react';
 
-const SubtitleOverlay: React.FC = () => {
+interface SubtitleOverlayProps {
+  primaryText: string;
+  secondaryText: string;
+}
+
+const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({ primaryText, secondaryText }) => {
+  // If both are empty, don't show the box
+  if (!primaryText && !secondaryText) return null;
+
   return (
     <div style={{
-      padding: '20px',
-      background: 'rgba(0, 0, 0, 0.7)',
+      padding: '12px 24px',
+      background: 'rgba(0, 0, 0, 0.75)',
       color: 'white',
-      borderRadius: '8px',
+      borderRadius: '12px',
       textAlign: 'center',
-      fontSize: '24px',
-      pointerEvents: 'none', // Allow clicks to pass through to the video
+      backdropFilter: 'blur(4px)', // Modern "Apple" style
+      transition: 'all 0.2s ease',
     }}>
-      SubLingo: Active
+      {/* Primary Subtitle (Large) */}
+      <div style={{ fontSize: '24px', fontWeight: '500', marginBottom: '4px' }}>
+        {primaryText}
+      </div>
+      
+      {/* Secondary Subtitle (Small/Gray) */}
+      <div style={{ fontSize: '18px', color: '#ccc' }}>
+        {secondaryText}
+      </div>
     </div>
   );
 };

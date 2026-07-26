@@ -1,36 +1,79 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import SubtitleOverlay from './SubtitleOverlay';
+import { YouTubeAdapter } from '../platforms/youtube/YoutubeAdapter.ts'; 
+import type { SubtitleEntry } from '../core/types/subtitles';
 
+const adapter = new YouTubeAdapter();
 
-// 1. Create a container for our Shadow DOM
-const container = document.createElement('div');
-container.id = 'sublingo-root';
-container.style.position = 'fixed';
-container.style.bottom = '10%';
-container.style.left = '50%';
-container.style.transform = 'translateX(-50%)';
-container.style.zIndex = '9999'; // Ensure it's on top of everything
+const App = () => {
+  const [primaryText, setPrimaryText] = useState('');
+  const [secondaryText, setSecondaryText] = useState('');
 
+  useEffect(() => {
+    const video = adapter.getVideoElement();
+    if (!video) return;
 
-// 2. Find a place to inject it. 
-// On YouTube, the '#movie_player' is a good target, 
-// but for the MVP, let's just put it on the body.
-document.body.appendChild(container);
+    let entries: SubtitleEntry[] = [];
 
-// 3. Attach the Shadow Root (mode: 'open' allows us to inspect it in DevTools)
-const shadow = container.attachShadow({ mode: 'open' });
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      if (event.data.type === 'SUBLINGO_INTERCEPTED_DATA') {
+        // We use the adapter to parse the intercepted JSON
+        const parsed = adapter.parseJSON(event.data.data);
+        entries = parsed;
+        console.log('[SubLingo] Engine loaded with lines:', entries.length);
+      }
+    };
 
-// 4. Create a div inside the shadow for React to mount into
-const reactRootDiv = document.createElement('div');
-shadow.appendChild(reactRootDiv);
+    window.addEventListener('message', handleMessage);
 
-// 5. Render the React App
-const root = createRoot(reactRootDiv);
-root.render(
-  <React.StrictMode>
-    <SubtitleOverlay />
-  </React.StrictMode>
-);
+    const onTimeUpdate = () => {
+      const currentTime = video.currentTime;
+      // Simple search to find which subtitle to show
+      const active = entries.find(e => currentTime >= e.start && currentTime <= e.end);
+      setPrimaryText(active ? active.text : '');
+    };
 
-console.log('[SubLingo] UI Injected');
+    video.addEventListener('timeupdate', onTimeUpdate);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      video.removeEventListener('timeupdate', onTimeUpdate);
+    };
+  }, []);
+
+  return <SubtitleOverlay primaryText={primaryText} secondaryText={secondaryText} />;
+};
+
+function injectUI() {
+  if (document.getElementById('sublingo-root')) return;
+
+  const container = document.createElement('div');
+  container.id = 'sublingo-root';
+  Object.assign(container.style, {
+    position: 'fixed',
+    bottom: '12%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: '2147483647',
+    pointerEvents: 'none',
+  });
+
+  document.body.appendChild(container);
+  const shadow = container.attachShadow({ mode: 'open' });
+  const reactRootDiv = document.createElement('div');
+  shadow.appendChild(reactRootDiv);
+
+  createRoot(reactRootDiv).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', injectUI);
+} else {
+  injectUI();
+}
