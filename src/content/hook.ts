@@ -1,14 +1,14 @@
 // src/content/hook.ts
 
 (function () {
-  // 1. Interception Logic (The Catch)
+  // 1. INTERCEPTION
   const originalOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (_method: string, url: string | URL) {
     const urlString = typeof url === 'string' ? url : url.toString();
     if (urlString.includes('api/timedtext')) {
       this.addEventListener('load', () => {
         window.postMessage({ 
-          type: 'SUBLINGO_INTERCEPTED_DATA', 
+          type: 'SUBLINGO_DATA', 
           data: this.responseText, 
           url: urlString 
         }, '*');
@@ -17,18 +17,24 @@
     return originalOpen.apply(this, arguments as any);
   };
 
-  // 2. The "Remote Control" (The Switch)
+  // 2. REMOTE CONTROL
   window.addEventListener('message', (event) => {
-    if (event.data.type === 'SUBLINGO_TRIGGER_SWITCH') {
-      const player = document.getElementById('movie_player') as any;
+    if (event.data.type === 'SUBLINGO_SET_PLAYER_LANG') {
+      const player = (document.getElementById('movie_player') || document.querySelector('.html5-video-player')) as any;
       if (player && player.setOption) {
-        console.log('[SubLingo Hook] Remote controlling player to fetch:', event.data.langCode);
+        player.loadModule('captions');
         
-        // This forces YouTube's own engine to fetch the new language
-        player.setOption('captions', 'track', { languageCode: event.data.langCode });
+        const config: any = { languageCode: event.data.langCode };
+        
+        // This is the specific internal flag for YouTube's Auto-Translate feature
+        if (event.data.isTranslation) {
+          config.translation_language = event.data.langCode;
+        }
+
+        player.setOption('captions', 'track', config);
+        console.log(`[SubLingo Hook] Player forced to: ${event.data.langCode} (Translation: ${event.data.isTranslation})`);
       }
     }
   });
 })();
-
 export {};
