@@ -1,39 +1,150 @@
 // src/content/hook.ts
-
 (function () {
-  // 1. INTERCEPTION
+  const post = (data: string, url: string) => {
+    window.postMessage({ type: 'SUBLINGO_DATA', data, url }, '*');
+  };
+
+  const getPlayer = () =>
+    (document.getElementById('movie_player') || document.querySelector('.html5-video-player')) as any;
+
+  // Reads the SAME raw caption metadata your original YoutubeAdapter parsed
+// from ytInitialPlayerResponse on first load — but via the player's live
+// getPlayerResponse(), which refreshes correctly on every SPA navigation.
+// This is more reliable than getOption('captions','tracklist'), which
+// reflects the captions UI module's reactive state and can lag or stay
+// empty depending on playback lifecycle timing.
+const getTracksFromPlayerResponse = (player: any): any[] => {
+  try {
+    const response = player.getPlayerResponse?.();
+    const tracks = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    return tracks || [];
+  } catch {
+    return [];
+  }
+};
+
+const waitForTracklist = async (maxAttempts = 10, delayMs = 300): Promise<any[]> => {
+  const player = getPlayer();
+  if (!player) return [];
+  player.loadModule?.('captions');
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const rawTracks = getTracksFromPlayerResponse(player);
+    if (rawTracks.length > 0) {
+      const tracklist = rawTracks.map((t: any) => ({
+        languageCode: t.languageCode,
+        kind: t.kind,
+        baseUrl: t.baseUrl,
+      }));
+      console.log(`[SubLingo Hook] Tracks ready after attempt ${attempt}:`, tracklist.map((t: any) => t.languageCode));
+      return tracklist;
+    }
+
+    // Fallback: also check the reactive UI module in case it populates first
+    const uiTracklist = player.getOption?.('captions', 'tracklist') || [];
+    if (uiTracklist.length > 0) {
+      console.log(`[SubLingo Hook] Tracks ready via UI module after attempt ${attempt}:`, uiTracklist.map((t: any) => t.languageCode));
+      return uiTracklist;
+    }
+
+    await new Promise(r => setTimeout(r, delayMs));
+  }
+  console.warn('[SubLingo Hook] No tracks found after', maxAttempts, 'attempts via either source');
+  return [];
+};
+
+  let pendingTranslation: { targetLangCode: string } | null = null;
+
+  const buildTranslatedUrl = (baseUrl: string, targetLangCode: string) => {
+    const url = new URL(baseUrl, window.location.origin);
+    url.searchParams.set('tlang', targetLangCode);
+    return url.toString();
+  };
+
+  const originalFetch = window.fetch;
+
+  const followUpWithTranslation = async (baseUrl: string, attempt = 1) => {
+    if (!pendingTranslation) return;
+    const { targetLangCode } = pendingTranslation;
+    if (attempt === 1) pendingTranslation = null;
+
+    const translatedUrl = buildTranslatedUrl(baseUrl, targetLangCode);
+    try {
+      const res = await originalFetch.call(window, translatedUrl, { credentials: 'include' });
+      const text = await res.text();
+      console.log(`[SubLingo Hook] Direct translation fetch attempt=${attempt} status=${res.status} length=${text.length}`);
+
+      if (text.length === 0 && attempt < 4) {
+        setTimeout(() => {
+          pendingTranslation = { targetLangCode };
+          followUpWithTranslation(baseUrl, attempt + 1);
+        }, 400 * attempt);
+        return;
+      }
+      post(text, translatedUrl);
+    } catch (e) {
+      console.warn('[SubLingo Hook] Direct translation fetch failed', e);
+    }
+  };
+
   const originalOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (_method: string, url: string | URL) {
     const urlString = typeof url === 'string' ? url : url.toString();
     if (urlString.includes('api/timedtext')) {
       this.addEventListener('load', () => {
-        window.postMessage({ 
-          type: 'SUBLINGO_DATA', 
-          data: this.responseText, 
-          url: urlString 
-        }, '*');
+        post(this.responseText, urlString);
+        followUpWithTranslation(urlString);
       });
     }
     return originalOpen.apply(this, arguments as any);
   };
 
-  // 2. REMOTE CONTROL
-  window.addEventListener('message', (event) => {
-    if (event.data.type === 'SUBLINGO_SET_PLAYER_LANG') {
-      const player = (document.getElementById('movie_player') || document.querySelector('.html5-video-player')) as any;
-      if (player && player.setOption) {
-        player.loadModule('captions');
-        
-        const config: any = { languageCode: event.data.langCode };
-        
-        // This is the specific internal flag for YouTube's Auto-Translate feature
-        if (event.data.isTranslation) {
-          config.translation_language = event.data.langCode;
-        }
+  window.fetch = async function (...args: Parameters<typeof fetch>) {
+    const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url;
+    const response = await originalFetch.apply(this, args);
+    if (url.includes('api/timedtext')) {
+      response.clone().text().then(text => {
+        post(text, url);
+        followUpWithTranslation(url);
+      });
+    }
+    return response;
+  };
 
-        player.setOption('captions', 'track', config);
-        console.log(`[SubLingo Hook] Player forced to: ${event.data.langCode} (Translation: ${event.data.isTranslation})`);
+  window.addEventListener('message', async (event) => {
+    if (event.source !== window) return;
+
+    if (event.data.type === 'SUBLINGO_GET_TRACKS') {
+  const tracklist = await waitForTracklist();
+  const tracks = tracklist.map((t: any) => ({
+    languageCode: t.languageCode,
+    isAutoGenerated: t.kind === 'asr',
+  }));
+  window.postMessage({ type: 'SUBLINGO_TRACKS', tracks }, '*');
+  return;
+}
+
+    if (event.data.type === 'SUBLINGO_SET_PLAYER_LANG') {
+      const player = getPlayer();
+      if (!player || !player.setOption) return;
+
+      const { sourceLangCode, isTranslation, targetLangCode } = event.data;
+      const tracklist = await waitForTracklist();
+      const sourceTrack = tracklist.find((t: any) => t.languageCode === sourceLangCode) || tracklist[0];
+
+      if (!sourceTrack) {
+        console.warn('[SubLingo Hook] No source track found for', sourceLangCode, '(tracklist empty after polling)');
+        return;
       }
+
+      pendingTranslation = (isTranslation && targetLangCode) ? { targetLangCode } : null;
+
+      player.setOption('captions', 'track', {});
+      player.setOption('captions', 'track', sourceTrack);
+      console.log(
+        '[SubLingo Hook] Base track requested:', sourceTrack.languageCode,
+        isTranslation ? `(will translate -> ${targetLangCode})` : ''
+      );
     }
   });
 })();

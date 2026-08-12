@@ -24,7 +24,13 @@ export class YouTubeAdapter implements PlatformAdapter {
     } catch (e) { return []; }
   }
 
-  // THE MISSING FUNCTION: Handles both XML and JSON formats
+  // Builds a translated-track URL from a base track's URL (e.g. force Polish via English base)
+  buildTranslationUrl(baseTrackUrl: string, targetLangCode: string): string {
+    const url = new URL(baseTrackUrl);
+    url.searchParams.set('tlang', targetLangCode);
+    return url.toString();
+  }
+
   public parse(rawData: string): SubtitleEntry[] {
     if (!rawData || rawData.trim().length < 10) return [];
     try {
@@ -53,6 +59,5 @@ export class YouTubeAdapter implements PlatformAdapter {
     } catch (e) { return []; }
   }
 
-  // Keep for interface compatibility
   async fetchSubtitleEntries(): Promise<SubtitleEntry[]> { return []; }
 }
