@@ -23,33 +23,37 @@ const getTracksFromPlayerResponse = (player: any): any[] => {
   }
 };
 
-const waitForTracklist = async (maxAttempts = 10, delayMs = 300): Promise<any[]> => {
-  const player = getPlayer();
-  if (!player) return [];
-  player.loadModule?.('captions');
-
+// Polls for the player object itself, not just its tracklist. On a cold
+// page load, the very first message can arrive before #movie_player even
+// exists in the DOM yet — bailing immediately in that case meant only the
+// outer retry (500ms later) had a chance to catch it, which wasn't always
+// enough. Polling here catches it much faster and more reliably.
+const waitForTracklist = async (maxAttempts = 12, delayMs = 300): Promise<any[]> => {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const rawTracks = getTracksFromPlayerResponse(player);
-    if (rawTracks.length > 0) {
-      const tracklist = rawTracks.map((t: any) => ({
-        languageCode: t.languageCode,
-        kind: t.kind,
-        baseUrl: t.baseUrl,
-      }));
-      console.log(`[SubLingo Hook] Tracks ready after attempt ${attempt}:`, tracklist.map((t: any) => t.languageCode));
-      return tracklist;
-    }
+    const player = getPlayer();
+    if (player) {
+      player.loadModule?.('captions');
 
-    // Fallback: also check the reactive UI module in case it populates first
-    const uiTracklist = player.getOption?.('captions', 'tracklist') || [];
-    if (uiTracklist.length > 0) {
-      console.log(`[SubLingo Hook] Tracks ready via UI module after attempt ${attempt}:`, uiTracklist.map((t: any) => t.languageCode));
-      return uiTracklist;
-    }
+      const rawTracks = getTracksFromPlayerResponse(player);
+      if (rawTracks.length > 0) {
+        const tracklist = rawTracks.map((t: any) => ({
+          languageCode: t.languageCode,
+          kind: t.kind,
+          baseUrl: t.baseUrl,
+        }));
+        console.log(`[SubLingo Hook] Tracks ready after attempt ${attempt}:`, tracklist.map((t: any) => t.languageCode));
+        return tracklist;
+      }
 
+      const uiTracklist = player.getOption?.('captions', 'tracklist') || [];
+      if (uiTracklist.length > 0) {
+        console.log(`[SubLingo Hook] Tracks ready via UI module after attempt ${attempt}:`, uiTracklist.map((t: any) => t.languageCode));
+        return uiTracklist;
+      }
+    }
     await new Promise(r => setTimeout(r, delayMs));
   }
-  console.warn('[SubLingo Hook] No tracks found after', maxAttempts, 'attempts via either source');
+  console.warn('[SubLingo Hook] No tracks found after', maxAttempts, 'attempts (player or tracklist never became ready)');
   return [];
 };
 
@@ -125,27 +129,33 @@ const waitForTracklist = async (maxAttempts = 10, delayMs = 300): Promise<any[]>
 }
 
     if (event.data.type === 'SUBLINGO_SET_PLAYER_LANG') {
-      const player = getPlayer();
-      if (!player || !player.setOption) return;
+  // waitForTracklist now also guarantees the player object itself exists
+  // by the time we get here (it polls for both), so we don't need a
+  // separate immediate getPlayer() null-check that could bail too early.
+  const { sourceLangCode, isTranslation, targetLangCode } = event.data;
+  const tracklist = await waitForTracklist();
+  const player = getPlayer();
 
-      const { sourceLangCode, isTranslation, targetLangCode } = event.data;
-      const tracklist = await waitForTracklist();
-      const sourceTrack = tracklist.find((t: any) => t.languageCode === sourceLangCode) || tracklist[0];
+  if (!player || !player.setOption || tracklist.length === 0) {
+    console.warn('[SubLingo Hook] Player or tracklist never became ready for', sourceLangCode);
+    return;
+  }
 
-      if (!sourceTrack) {
-        console.warn('[SubLingo Hook] No source track found for', sourceLangCode, '(tracklist empty after polling)');
-        return;
-      }
+  const sourceTrack = tracklist.find((t: any) => t.languageCode === sourceLangCode) || tracklist[0];
+  if (!sourceTrack) {
+    console.warn('[SubLingo Hook] No source track found for', sourceLangCode);
+    return;
+  }
 
-      pendingTranslation = (isTranslation && targetLangCode) ? { targetLangCode } : null;
+  pendingTranslation = (isTranslation && targetLangCode) ? { targetLangCode } : null;
 
-      player.setOption('captions', 'track', {});
-      player.setOption('captions', 'track', sourceTrack);
-      console.log(
-        '[SubLingo Hook] Base track requested:', sourceTrack.languageCode,
-        isTranslation ? `(will translate -> ${targetLangCode})` : ''
-      );
-    }
+  player.setOption('captions', 'track', {});
+  player.setOption('captions', 'track', sourceTrack);
+  console.log(
+    '[SubLingo Hook] Base track requested:', sourceTrack.languageCode,
+    isTranslation ? `(will translate -> ${targetLangCode})` : ''
+  );
+}
   });
 })();
 export {};
