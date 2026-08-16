@@ -6,6 +6,7 @@ import { SubtitleEngine } from '../core/engine/SubtitleEngine';
 import { getSettings } from '../shared/storage';
 import type { CaptionStyle, OverlayLayout } from '../shared/storage';
 import { DEFAULT_CAPTION_STYLE, DEFAULT_OVERLAY_LAYOUT, setSettings } from '../shared/storage';
+import { GOOGLE_FONTS_URL } from '../shared/storage';
 
 const adapter = new YouTubeAdapter();
 const CAPTURE_TIMEOUT_MS = 6000;
@@ -275,6 +276,14 @@ function injectUI() {
   // real stored `enabled` value as soon as settings load.
   nativeCaptionStyleEl.textContent = '.ytp-caption-window-container { display: none !important; }';
   (document.head || document.documentElement).appendChild(nativeCaptionStyleEl);
+
+  if (!document.getElementById('sublingo-google-fonts')) {
+  const fontLink = document.createElement('link');
+  fontLink.id = 'sublingo-google-fonts';
+  fontLink.rel = 'stylesheet';
+  fontLink.href = GOOGLE_FONTS_URL;
+  (document.head || document.documentElement).appendChild(fontLink);
+}
 
   const container = document.createElement('div');
   container.id = 'sublingo-root';

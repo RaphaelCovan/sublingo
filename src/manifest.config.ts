@@ -8,6 +8,9 @@ export default defineManifest({
   action: { default_popup: 'index.html' },
   permissions: ['storage'],
   host_permissions: ['https://www.youtube.com/*', 'https://*.youtube.com/*'],
+  content_security_policy: {
+  extension_pages: "script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;",
+  },
   content_scripts: [
     {
       js: ['src/content/index.tsx'],

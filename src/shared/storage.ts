@@ -15,12 +15,19 @@ export interface OverlayLayout {
   fy: number | null;
 }
 
+export interface CaptionPreset {
+  id: string;
+  name: string;
+  style: CaptionStyle;
+}
+
 export interface SubLingoSettings {
   enabled: boolean;
   primaryLanguage: string;
   secondaryLanguage: string;
   captionStyle: CaptionStyle;
   overlayLayout: OverlayLayout;
+  customPresets: CaptionPreset[];
 }
 
 export const FONT_FAMILIES = [
@@ -32,7 +39,15 @@ export const FONT_FAMILIES = [
   '"Trebuchet MS", sans-serif',
   '"Comic Sans MS", cursive',
   'Impact, sans-serif',
+  'Inter, sans-serif',
+  '"Nunito Sans", sans-serif',
 ];
+
+// Google Fonts families that need to be loaded — a subset of the names
+// above that aren't already system-available.
+export const GOOGLE_FONT_FAMILIES = ['Inter:wght@400;700', 'Nunito+Sans:wght@600;700'];
+export const GOOGLE_FONTS_URL =
+  `https://fonts.googleapis.com/css2?${GOOGLE_FONT_FAMILIES.map(f => `family=${f}`).join('&')}&display=swap`;
 
 export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
   fontFamily: FONT_FAMILIES[0],
@@ -62,6 +77,7 @@ const SYNC_DEFAULTS = {
 const LOCAL_DEFAULTS = {
   captionStyle: DEFAULT_CAPTION_STYLE,
   overlayLayout: DEFAULT_OVERLAY_LAYOUT,
+  customPresets: [] as CaptionPreset[],
 };
 
 export const DEFAULT_SETTINGS: SubLingoSettings = {
@@ -78,6 +94,7 @@ export const getSettings = (): Promise<SubLingoSettings> => {
           ...syncItems,
           captionStyle: { ...DEFAULT_CAPTION_STYLE, ...(localItems as any).captionStyle },
           overlayLayout: { ...DEFAULT_OVERLAY_LAYOUT, ...(localItems as any).overlayLayout },
+          customPresets: (localItems as any).customPresets ?? [],
         } as SubLingoSettings);
       });
     });
@@ -89,7 +106,7 @@ export const setSettings = (settings: Partial<SubLingoSettings>): Promise<void> 
   const localPatch: Record<string, unknown> = {};
 
   for (const key of Object.keys(settings) as (keyof SubLingoSettings)[]) {
-    if (key === 'captionStyle' || key === 'overlayLayout') localPatch[key] = settings[key];
+    if (key === 'captionStyle' || key === 'overlayLayout' || key === 'customPresets') localPatch[key] = settings[key];
     else syncPatch[key] = settings[key];
   }
 

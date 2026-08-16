@@ -2,10 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { getSettings, setSettings } from './shared/storage';
 import type { SubLingoSettings, CaptionStyle } from './shared/storage';
 import { FONT_FAMILIES, DEFAULT_CAPTION_STYLE, DEFAULT_OVERLAY_LAYOUT } from './shared/storage';
+import { BUILT_IN_PRESETS } from './shared/presets';
 import { LANGUAGES } from './shared/languages';
 import type { Language } from './shared/languages';
 import { PAYPAL_DONATE_URL } from './shared/donation';
+import { GITHUB_REPO_URL, DEVELOPER_HANDLE } from './shared/links';
 import './App.css';
+import { GOOGLE_FONTS_URL } from './shared/storage';
 
 const LanguagePicker = ({
   label,
@@ -75,28 +78,22 @@ const LanguagePicker = ({
 const App = () => {
   const [settings, setLocalSettings] = useState<SubLingoSettings | null>(null);
   const [tab, setTab] = useState<'settings' | 'appearance' | 'support'>('settings');
+  const [addingPreset, setAddingPreset] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
   const styleDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getSettings().then(setLocalSettings);
   }, []);
-
-  // Chrome extension popups size themselves once at open time and don't
-  // auto-shrink when content later gets shorter (e.g. switching to a
-  // shorter tab) — this was leaving blank space and a vestigial scrollbar.
-  // Explicitly measuring and setting body height on every content change
-  // forces the popup to resize correctly.
+  
   useEffect(() => {
-    if (!rootRef.current) return;
-    const resize = () => {
-      document.body.style.height = `${rootRef.current!.offsetHeight}px`;
-    };
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(rootRef.current);
-    return () => ro.disconnect();
-  }, []);
+  if (document.getElementById('sublingo-google-fonts')) return;
+  const link = document.createElement('link');
+  link.id = 'sublingo-google-fonts';
+  link.rel = 'stylesheet';
+  link.href = GOOGLE_FONTS_URL;
+  document.head.appendChild(link);
+}, []);
 
   const update = (patch: Partial<SubLingoSettings>) => {
     if (!settings) return;
@@ -116,6 +113,27 @@ const App = () => {
     }, 150);
   };
 
+  const applyPreset = (style: CaptionStyle) => {
+    update({ captionStyle: style });
+  };
+
+  const saveCurrentAsPreset = () => {
+    if (!settings || !newPresetName.trim()) return;
+    const preset = {
+      id: `custom-${Date.now()}`,
+      name: newPresetName.trim(),
+      style: settings.captionStyle,
+    };
+    update({ customPresets: [...settings.customPresets, preset] });
+    setNewPresetName('');
+    setAddingPreset(false);
+  };
+
+  const deleteCustomPreset = (id: string) => {
+    if (!settings) return;
+    update({ customPresets: settings.customPresets.filter(p => p.id !== id) });
+  };
+
   const resetPosition = () => {
     update({ overlayLayout: DEFAULT_OVERLAY_LAYOUT });
   };
@@ -127,7 +145,7 @@ const App = () => {
   if (!settings) return <div className="app-root loading">Loading…</div>;
 
   return (
-    <div className="app-root" ref={rootRef}>
+    <div className="app-root">
       <div className="app-header">
         <span className="app-title">SubLingo</span>
         <div className="header-actions">
@@ -170,11 +188,58 @@ const App = () => {
             onChange={code => update({ secondaryLanguage: code })}
           />
           <div className="app-footer">Changes apply on your next video load.</div>
+
+          <div className="about-section">
+            <h3 className="about-title">About SubLingo</h3>
+            <p className="about-text">
+              SubLingo works by requesting YouTube's own captions. It doesn't generate
+              translations itself. If a video has no captions at all, subtitles won't
+              appear here either. When your chosen language isn't available natively,
+              we ask YouTube to auto-translate from whichever caption track the video
+              does have, so quality depends on both that original track (manual captions
+              are more accurate than auto-generated ones) and YouTube's own translation
+              engine.
+            </p>
+          </div>
         </>
       )}
 
       {tab === 'appearance' && (
         <>
+          <div className="field">
+            <label className="picker-label">Presets</label>
+            <div className="preset-row">
+              {BUILT_IN_PRESETS.map(p => (
+                <button key={p.id} className="preset-chip" onClick={() => applyPreset(p.style)}>
+                  {p.name}
+                </button>
+              ))}
+              {settings.customPresets.map(p => (
+                <span key={p.id} className="preset-chip-wrap">
+                  <button className="preset-chip" onClick={() => applyPreset(p.style)}>{p.name}</button>
+                  <button className="preset-chip-remove" onClick={() => deleteCustomPreset(p.id)} title="Delete preset">×</button>
+                </span>
+              ))}
+            </div>
+
+            {!addingPreset ? (
+              <button className="preset-add-btn" onClick={() => setAddingPreset(true)}>+ Save current as preset</button>
+            ) : (
+              <div className="preset-add-form">
+                <input
+                  type="text"
+                  className="preset-name-input"
+                  placeholder="Preset name"
+                  value={newPresetName}
+                  onChange={e => setNewPresetName(e.target.value)}
+                  autoFocus
+                />
+                <button className="preset-confirm-btn" onClick={saveCurrentAsPreset} disabled={!newPresetName.trim()}>Save</button>
+                <button className="preset-cancel-btn" onClick={() => { setAddingPreset(false); setNewPresetName(''); }}>Cancel</button>
+              </div>
+            )}
+          </div>
+
           <div className="field">
             <label className="picker-label">Font</label>
             <select
@@ -271,7 +336,7 @@ const App = () => {
       {tab === 'support' && (
         <div className="support-tab">
           <p className="support-text">
-            SubLingo is completely free to use. If it's been helping you learn a language, any donation will motivate me even more to continue this project.
+            SubLingo is free to use. If it's helped you learn a language, a donation goes a long way.
           </p>
           <button
             className="donate-btn"
@@ -279,15 +344,15 @@ const App = () => {
           >
             Donate via PayPal
           </button>
-
-          <div className="about-section">
-            <h3 className="about-title">About SubLingo</h3>
-            <p className="about-text">
-              SubLingo only works 
-            </p>
-          </div>
         </div>
       )}
+
+      <footer className="app-link-footer">
+        Developed by{' '}
+        <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">
+          {DEVELOPER_HANDLE}
+        </a>
+      </footer>
     </div>
   );
 };
