@@ -5,8 +5,7 @@ import SubtitleOverlay from './SubtitleOverlay';
 import { SubtitleEngine } from '../core/engine/SubtitleEngine';
 import { getSettings } from '../shared/storage';
 import type { CaptionStyle, OverlayLayout } from '../shared/storage';
-import { DEFAULT_CAPTION_STYLE, DEFAULT_OVERLAY_LAYOUT, setSettings } from '../shared/storage';
-import { GOOGLE_FONTS_URL } from '../shared/storage';
+import { DEFAULT_CAPTION_STYLE, DEFAULT_FONT_SIZE, DEFAULT_OVERLAY_LAYOUT, GOOGLE_FONTS_URL, setSettings } from '../shared/storage';
 
 const adapter = new YouTubeAdapter();
 const CAPTURE_TIMEOUT_MS = 6000;
@@ -30,7 +29,9 @@ const App = () => {
   const [isEnabled, setEnabled] = useState(true);
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(DEFAULT_CAPTION_STYLE);
   const [overlayLayout, setOverlayLayout] = useState<OverlayLayout>(DEFAULT_OVERLAY_LAYOUT);
+  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const engine = useRef(new SubtitleEngine());
+  
 
   const pendingResolve = useRef<((data: string | null) => void) | null>(null);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,6 +111,7 @@ const App = () => {
     setEnabled(s.enabled);
     setCaptionStyle(s.captionStyle);
     setOverlayLayout(s.overlayLayout);
+    setFontSize(s.fontSize);
     if (!s.enabled) return;
 
     const tracks = await getLiveTracks();
@@ -214,6 +216,7 @@ const App = () => {
       }
       if (changes.captionStyle) setCaptionStyle(changes.captionStyle.newValue as CaptionStyle);
       if (changes.overlayLayout) setOverlayLayout(changes.overlayLayout.newValue as OverlayLayout);
+      if (changes.fontSize) setFontSize(changes.fontSize.newValue as number);
     };
 
     attachToVideo();
@@ -237,6 +240,7 @@ const App = () => {
       primaryText={displayPrimary}
       secondaryText={displaySecondary}
       captionStyle={captionStyle}
+      fontSize={fontSize}
       layout={overlayLayout}
       onLayoutChange={handleLayoutChange}
     />

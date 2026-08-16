@@ -1,11 +1,10 @@
 export interface CaptionStyle {
   fontFamily: string;
-  fontSize: number;
   primaryColor: string;
   primaryBorderColor: string;
   secondaryColor: string;
   secondaryBorderColor: string;
-  borderWidth: number; // px; 0 = no outline
+  borderWidth: number;
   backgroundOpacity: number;
 }
 // Fractional position (0–1) within the video player's box — see
@@ -26,6 +25,7 @@ export interface SubLingoSettings {
   primaryLanguage: string;
   secondaryLanguage: string;
   captionStyle: CaptionStyle;
+  fontSize: number;
   overlayLayout: OverlayLayout;
   customPresets: CaptionPreset[];
 }
@@ -51,7 +51,6 @@ export const GOOGLE_FONTS_URL =
 
 export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
   fontFamily: FONT_FAMILIES[0],
-  fontSize: 26,
   primaryColor: '#ffffff',
   primaryBorderColor: '#000000',
   secondaryColor: '#ffd60a',
@@ -59,6 +58,8 @@ export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
   borderWidth: 1,
   backgroundOpacity: 0,
 };
+
+export const DEFAULT_FONT_SIZE = 26;
 
 export const DEFAULT_OVERLAY_LAYOUT: OverlayLayout = { fx: null, fy: null };
 
@@ -69,13 +70,12 @@ const SYNC_DEFAULTS = {
   secondaryLanguage: 'pt-BR',
 };
 
-// Frequently-changed via sliders/dragging — chrome.storage.sync has a
-// write-rate limit (~2/sec sustained) that a slider drag blows through in
-// well under a second, silently locking out ALL further sync writes for a
-// cooldown window. chrome.storage.local has no comparable limit, so
-// appearance/layout live here instead.
+// fontSize now lives alongside the other frequently-adjusted, high-write-
+// frequency settings in local storage (see the write-rate-limit note from
+// when we split sync/local originally) — same reasoning as captionStyle.
 const LOCAL_DEFAULTS = {
   captionStyle: DEFAULT_CAPTION_STYLE,
+  fontSize: DEFAULT_FONT_SIZE,
   overlayLayout: DEFAULT_OVERLAY_LAYOUT,
   customPresets: [] as CaptionPreset[],
 };
@@ -93,6 +93,7 @@ export const getSettings = (): Promise<SubLingoSettings> => {
           ...SYNC_DEFAULTS,
           ...syncItems,
           captionStyle: { ...DEFAULT_CAPTION_STYLE, ...(localItems as any).captionStyle },
+          fontSize: (localItems as any).fontSize ?? DEFAULT_FONT_SIZE,
           overlayLayout: { ...DEFAULT_OVERLAY_LAYOUT, ...(localItems as any).overlayLayout },
           customPresets: (localItems as any).customPresets ?? [],
         } as SubLingoSettings);
@@ -106,8 +107,11 @@ export const setSettings = (settings: Partial<SubLingoSettings>): Promise<void> 
   const localPatch: Record<string, unknown> = {};
 
   for (const key of Object.keys(settings) as (keyof SubLingoSettings)[]) {
-    if (key === 'captionStyle' || key === 'overlayLayout' || key === 'customPresets') localPatch[key] = settings[key];
-    else syncPatch[key] = settings[key];
+    if (key === 'captionStyle' || key === 'overlayLayout' || key === 'customPresets' || key === 'fontSize') {
+      localPatch[key] = settings[key];
+    } else {
+      syncPatch[key] = settings[key];
+    }
   }
 
   const ops: Promise<void>[] = [];

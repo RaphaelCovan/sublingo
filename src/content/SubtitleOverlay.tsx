@@ -5,6 +5,7 @@ interface Props {
   primaryText: string;
   secondaryText: string;
   captionStyle: CaptionStyle;
+  fontSize: number;
   layout: OverlayLayout;
   onLayoutChange: (layout: OverlayLayout) => void;
 }
@@ -21,15 +22,12 @@ const makeOutline = (color: string, width: number) => {
   return offsets.map(([x, y]) => `${x}px ${y}px 0 ${color}`).join(', ');
 };
 
-const SubtitleOverlay: React.FC<Props> = ({ primaryText, secondaryText, captionStyle, layout, onLayoutChange }) => {
+const SubtitleOverlay: React.FC<Props> = ({ primaryText, secondaryText, captionStyle, fontSize, layout, onLayoutChange }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
   const [pixelPos, setPixelPos] = useState<{ x: number; y: number } | null>(null);
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
-  // #sublingo-root is kept sized to exactly match the <video> element's own
-  // box in every mode (see index.tsx) — so watching it directly gives us
-  // "stay within the video" for free in normal, theater, and fullscreen.
   useEffect(() => {
     const container = document.getElementById('sublingo-root');
     if (!container) return;
@@ -44,7 +42,7 @@ const SubtitleOverlay: React.FC<Props> = ({ primaryText, secondaryText, captionS
   }, []);
 
   useEffect(() => {
-    if (dragState.current) return; // don't fight an in-progress drag
+    if (dragState.current) return;
     if (bounds.width === 0 || bounds.height === 0) return;
     const fx = layout.fx ?? 0.5;
     const fy = layout.fy ?? 0.88;
@@ -66,10 +64,6 @@ const SubtitleOverlay: React.FC<Props> = ({ primaryText, secondaryText, captionS
     const box = boxRef.current;
     if (!container || !box) return;
 
-    // Measure the box's REAL current on-screen position rather than trusting
-    // stored/derived state — this is what fixed the "teleport on click" bug,
-    // since state could momentarily lag the actual layout right after a
-    // fullscreen transition.
     const containerRect = container.getBoundingClientRect();
     const boxRect = box.getBoundingClientRect();
     const realX = (boxRect.left + boxRect.width / 2) - containerRect.left;
@@ -109,12 +103,6 @@ const SubtitleOverlay: React.FC<Props> = ({ primaryText, secondaryText, captionS
         position: 'absolute',
         left: 0,
         top: 0,
-        // Positioning done entirely via transform rather than left/top — a
-        // browser computes an absolutely-positioned element's shrink-to-fit
-        // width using its raw `left` value BEFORE any transform is applied.
-        // With left pinned at 0, width is always calculated against the full
-        // container, and transform alone moves the finished box into place —
-        // this is what stops it from squeezing into a narrow column near edges.
         transform: `translate(${pixelPos.x}px, ${pixelPos.y}px) translate(-50%, -100%)`,
         pointerEvents: 'auto',
         cursor: dragState.current ? 'grabbing' : 'grab',
@@ -126,8 +114,8 @@ const SubtitleOverlay: React.FC<Props> = ({ primaryText, secondaryText, captionS
         userSelect: 'none',
         touchAction: 'none',
         fontFamily: captionStyle.fontFamily,
-        fontSize: `${captionStyle.fontSize}px`,
-    }}
+        fontSize: `${fontSize}px`,
+      }}
     >
       {primaryText && (
         <div style={{

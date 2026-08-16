@@ -17,7 +17,6 @@ export const BUILT_IN_PRESETS: BuiltInPreset[] = [
   name: 'Netflix',
   style: {
     fontFamily: 'Inter, sans-serif',
-    fontSize: 26,
     primaryColor: '#e5e5e5',
     primaryBorderColor: '#000000',
     secondaryColor: '#ffd60a',
@@ -31,7 +30,6 @@ export const BUILT_IN_PRESETS: BuiltInPreset[] = [
   name: 'Prime Video',
   style: {
     fontFamily: '"Nunito Sans", sans-serif',
-    fontSize: 26,
     primaryColor: '#ffffff',
     primaryBorderColor: '#000000',
     secondaryColor: '#00caff',
@@ -45,7 +43,6 @@ export const BUILT_IN_PRESETS: BuiltInPreset[] = [
     name: 'YouTube Classic',
     style: {
       fontFamily: FONT_FAMILIES[0],
-      fontSize: 24,
       primaryColor: '#ffffff',
       primaryBorderColor: '#000000',
       secondaryColor: '#ffd60a',
@@ -59,7 +56,6 @@ export const BUILT_IN_PRESETS: BuiltInPreset[] = [
     name: 'Clean Minimal',
     style: {
       fontFamily: FONT_FAMILIES[0],
-      fontSize: 26,
       primaryColor: '#ffffff',
       primaryBorderColor: '#000000',
       secondaryColor: '#ffe27a',

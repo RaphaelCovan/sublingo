@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getSettings, setSettings } from './shared/storage';
 import type { SubLingoSettings, CaptionStyle } from './shared/storage';
-import { FONT_FAMILIES, DEFAULT_CAPTION_STYLE, DEFAULT_OVERLAY_LAYOUT } from './shared/storage';
+import { FONT_FAMILIES, DEFAULT_CAPTION_STYLE, DEFAULT_FONT_SIZE, DEFAULT_OVERLAY_LAYOUT, GOOGLE_FONTS_URL } from './shared/storage';
 import { BUILT_IN_PRESETS } from './shared/presets';
 import { LANGUAGES } from './shared/languages';
 import type { Language } from './shared/languages';
 import { PAYPAL_DONATE_URL } from './shared/donation';
 import { GITHUB_REPO_URL, DEVELOPER_HANDLE } from './shared/links';
 import './App.css';
-import { GOOGLE_FONTS_URL } from './shared/storage';
 
 const LanguagePicker = ({
   label,
@@ -80,20 +79,20 @@ const App = () => {
   const [tab, setTab] = useState<'settings' | 'appearance' | 'support'>('settings');
   const [addingPreset, setAddingPreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
-  const styleDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     getSettings().then(setLocalSettings);
   }, []);
-  
+
   useEffect(() => {
-  if (document.getElementById('sublingo-google-fonts')) return;
-  const link = document.createElement('link');
-  link.id = 'sublingo-google-fonts';
-  link.rel = 'stylesheet';
-  link.href = GOOGLE_FONTS_URL;
-  document.head.appendChild(link);
-}, []);
+    if (document.getElementById('sublingo-google-fonts')) return;
+    const link = document.createElement('link');
+    link.id = 'sublingo-google-fonts';
+    link.rel = 'stylesheet';
+    link.href = GOOGLE_FONTS_URL;
+    document.head.appendChild(link);
+  }, []);
 
   const update = (patch: Partial<SubLingoSettings>) => {
     if (!settings) return;
@@ -102,17 +101,27 @@ const App = () => {
     setSettings(patch);
   };
 
-  const updateStyle = (patch: Partial<CaptionStyle>) => {
+  // Debounced so rapid slider drags (fontSize, borderWidth, opacity) don't
+  // hit chrome.storage's write-rate limit — see earlier fix for the same
+  // issue that broke the popup entirely before this was in place.
+  const updateDebounced = (patch: Partial<SubLingoSettings>) => {
     if (!settings) return;
-    const nextStyle = { ...settings.captionStyle, ...patch };
-    setLocalSettings({ ...settings, captionStyle: nextStyle });
+    const next = { ...settings, ...patch };
+    setLocalSettings(next);
 
-    if (styleDebounce.current) clearTimeout(styleDebounce.current);
-    styleDebounce.current = setTimeout(() => {
-      setSettings({ captionStyle: nextStyle });
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => {
+      setSettings(patch);
     }, 150);
   };
 
+  const updateStyle = (patch: Partial<CaptionStyle>) => {
+    if (!settings) return;
+    updateDebounced({ captionStyle: { ...settings.captionStyle, ...patch } });
+  };
+
+  // Presets intentionally only touch captionStyle — fontSize is left
+  // completely alone so a preset never resets the user's chosen size.
   const applyPreset = (style: CaptionStyle) => {
     update({ captionStyle: style });
   };
@@ -139,7 +148,7 @@ const App = () => {
   };
 
   const resetAppearance = () => {
-    update({ captionStyle: DEFAULT_CAPTION_STYLE, overlayLayout: DEFAULT_OVERLAY_LAYOUT });
+    update({ captionStyle: DEFAULT_CAPTION_STYLE, fontSize: DEFAULT_FONT_SIZE, overlayLayout: DEFAULT_OVERLAY_LAYOUT });
   };
 
   if (!settings) return <div className="app-root loading">Loading…</div>;
@@ -192,7 +201,7 @@ const App = () => {
           <div className="about-section">
             <h3 className="about-title">About SubLingo</h3>
             <p className="about-text">
-              SubLingo works by requesting YouTube's own captions. It doesn't generate
+              SubLingo works by requesting YouTube's own captions — it doesn't generate
               translations itself. If a video has no captions at all, subtitles won't
               appear here either. When your chosen language isn't available natively,
               we ask YouTube to auto-translate from whichever caption track the video
@@ -256,11 +265,11 @@ const App = () => {
           </div>
 
           <div className="field">
-            <label className="picker-label">Subtitle size — {settings.captionStyle.fontSize}px</label>
+            <label className="picker-label">Subtitle size — {settings.fontSize}px</label>
             <input
               type="range" min={16} max={48}
-              value={settings.captionStyle.fontSize}
-              onChange={e => updateStyle({ fontSize: Number(e.target.value) })}
+              value={settings.fontSize}
+              onChange={e => updateDebounced({ fontSize: Number(e.target.value) })}
               className="slider"
             />
           </div>
