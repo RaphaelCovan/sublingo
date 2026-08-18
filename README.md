@@ -1,75 +1,126 @@
-# React + TypeScript + Vite
+# SubLingo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Learn languages by watching YouTube with dual subtitles.**
 
-Currently, two official plugins are available:
+SubLingo is a browser extension that overlays two synchronized subtitle tracks on top of any YouTube video — your native language and the language you're learning — so you can follow along and pick up vocabulary in context, without leaving the video.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Dual subtitles, always synced** — a primary line and a "learning" line displayed together, pulled directly from YouTube's own caption data.
+- **Works with auto-generated and auto-translated captions** — if a video doesn't have your chosen language natively, SubLingo asks YouTube to auto-translate from whatever caption track *is* available.
+- **Click any word for an instant translation** — tap a word in either subtitle line to see a quick translation, with your last 20 lookups saved under **History**.
+- **Fully customizable appearance** — font, text size, primary/secondary colors, outline color and thickness, and background opacity, all live-editable from the popup.
+- **Built-in style presets** — Netflix, Prime Video, YouTube Classic, and Clean Minimal, plus the ability to save your own custom presets.
+- **Draggable, on-video positioning** — move the subtitle box anywhere within the video's own bounds, correctly across normal, theater, and fullscreen modes.
+- **100+ supported languages** — pick any primary/learning language pair from a full, searchable language list.
+- **Free and open source.**
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## How it works
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+YouTube doesn't expose a simple "give me two caption tracks at once" API, so SubLingo works by:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Reading the video's available caption tracks directly from the YouTube player.
+2. Requesting your **primary** language track — natively if the video has it, or via YouTube's own auto-translate feature if it doesn't.
+3. Doing the same for your **secondary (learning)** language track, a moment later so the two requests don't collide.
+4. Intercepting both responses, parsing YouTube's timed-text format, and rendering them as a single synchronized overlay drawn inside the video's own boundaries — positioned, styled, and interactive independently of YouTube's native caption UI (which is hidden while SubLingo is active).
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+For the click-to-translate feature, the clicked word (and the language of the line it came from) is sent to a lightweight translation lookup, and the result is cached in your local translation history.
 
+Because SubLingo relies entirely on captions YouTube itself provides:
+- If a video has **no captions at all**, SubLingo can't show anything either.
+- Translation quality depends on the underlying caption track — manually-written captions are more accurate than auto-generated (ASR) ones — and on YouTube's own translation engine when auto-translate is used.
+
+---
+
+## Installation (development mode)
+
+SubLingo isn't yet published to the Chrome Web Store. To run it locally:
+
+```bash
+git clone https://github.com/RaphaelCovan/sublingo.git
+cd sublingo
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Then load it into Chrome:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. Go to `chrome://extensions`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select the `dist` folder produced by the dev/build command
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Open any YouTube video and the SubLingo overlay should appear automatically once captions are available.
+
+---
+
+## Tech stack
+
+- **React + TypeScript**, bundled with **Vite**
+- **CRXJS Vite plugin** for Manifest V3 extension tooling
+- **Manifest V3** — content scripts, a background service worker, and a `MAIN`-world hook script for player interception
+- No external UI frameworks — all styling is hand-rolled CSS, rendered inside a Shadow DOM to stay isolated from YouTube's own styles
+
+### Project structure
 
 ```
+src/
+  background/       Service worker — handles word-translation lookups
+  content/           Injected into YouTube pages
+    hook.ts          MAIN-world script — talks to YouTube's player directly
+    index.tsx         Isolated-world content script — orchestration, state, rendering
+    SubtitleOverlay.tsx   The draggable, clickable subtitle UI itself
+  core/
+    engine/          Subtitle timing/sync logic
+    types/           Shared type definitions
+  platforms/youtube/ YouTube-specific caption parsing and track discovery
+  shared/            Settings storage, language list, presets, links
+  App.tsx            The extension's popup UI
+  manifest.config.ts Extension manifest (CRXJS format)
+```
+
+---
+
+## Known limitations
+
+- **YouTube only**, for now — see [Roadmap](#roadmap).
+- Requires the video to have *some* caption track (manual or auto-generated) in a language SubLingo can translate from.
+- Click-to-translate uses word-level lookups rather than full sentence context, so results can occasionally miss nuance that a native speaker would catch from surrounding context.
+- **Chrome-only**, for now — (Manifest V3, CRXJS-based build).
+
+---
+
+## Roadmap
+
+- Support for additional streaming platforms beyond YouTube.
+- More context-aware word translations.
+- Chrome Web Store listing.
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome. If you run into a bug, please include:
+- The video URL you were watching
+- Your primary/learning language settings
+- Console output from the page (`F12` → Console), if relevant
+
+---
+
+## Support
+
+SubLingo is free and developed independently. If it's helped you learn a language, consider [supporting the project](https://ko-fi.com/YOUR_KOFI_USERNAME) — it goes directly toward keeping development going.
+
+---
+
+## License
+
+MIT
+
+---
+
+Developed by [@covan182](https://github.com/covan182)
