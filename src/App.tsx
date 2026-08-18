@@ -5,7 +5,7 @@ import { FONT_FAMILIES, DEFAULT_CAPTION_STYLE, DEFAULT_FONT_SIZE, DEFAULT_OVERLA
 import { BUILT_IN_PRESETS } from './shared/presets';
 import { LANGUAGES } from './shared/languages';
 import type { Language } from './shared/languages';
-import { PAYPAL_DONATE_URL } from './shared/donation';
+import { KOFI_DONATE_URL } from './shared/donation';
 import { GITHUB_REPO_URL, DEVELOPER_HANDLE } from './shared/links';
 import './App.css';
 
@@ -84,9 +84,11 @@ const timeAgo = (timestamp: number) => {
   return `${Math.floor(diffHr / 24)}d ago`;
 };
 
+type Tab = 'settings' | 'appearance' | 'history' | 'about' | 'support';
+
 const App = () => {
   const [settings, setLocalSettings] = useState<SubLingoSettings | null>(null);
-  const [tab, setTab] = useState<'settings' | 'appearance' | 'history' | 'support'>('settings');
+  const [tab, setTab] = useState<Tab>('settings');
   const [addingPreset, setAddingPreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,9 +106,6 @@ const App = () => {
     document.head.appendChild(link);
   }, []);
 
-  // The video page writes new history entries while the popup may already
-  // be open — keep the list live rather than only reflecting what existed
-  // at the moment the popup happened to open.
   useEffect(() => {
     const handleChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
       if (changes.wordHistory) {
@@ -205,8 +204,11 @@ const App = () => {
         <button className={`tab ${tab === 'history' ? 'active' : ''}`} data-label="History" onClick={() => setTab('history')}>
           History
         </button>
-        <button className={`tab ${tab === 'support' ? 'active' : ''}`} data-label="Support Us" onClick={() => setTab('support')}>
-          Support Us
+        <button className={`tab ${tab === 'about' ? 'active' : ''}`} data-label="About" onClick={() => setTab('about')}>
+          About
+        </button>
+        <button className={`tab ${tab === 'support' ? 'active' : ''}`} data-label="Support Me" onClick={() => setTab('support')}>
+          Support Me
         </button>
       </div>
 
@@ -223,24 +225,6 @@ const App = () => {
             onChange={code => update({ secondaryLanguage: code })}
           />
           <div className="app-footer">Changes apply on your next video load.</div>
-
-          <div className="about-section">
-            <h3 className="about-title">About SubLingo</h3>
-            <p className="about-text">
-              SubLingo works by requesting YouTube's own captions. It doesn't generate
-              translations itself. If a video has no captions at all, subtitles won't
-              appear here either. When your chosen language isn't available natively,
-              we ask YouTube to auto-translate from whichever caption track the video
-              does have, so quality depends on both that original track (manual captions
-              are more accurate than auto-generated ones) and YouTube's own translation
-              engine.
-            </p>
-            <p className="about-text">
-              Tapping any word in the subtitles looks up a quick translation into the
-              other language you've chosen. It's instant but for nuance or grammar it's worth double-checking with a
-              proper dictionary.
-            </p>
-          </div>
         </>
       )}
 
@@ -399,16 +383,38 @@ const App = () => {
         </div>
       )}
 
+      {tab === 'about' && (
+        <div className="about-section about-section--tab">
+          <h3 className="about-title">About SubLingo</h3>
+          <p className="about-text">
+            SubLingo works by requesting YouTube's own captions. It doesn't generate
+            translations itself. If a video has no captions at all, subtitles won't
+            appear here either. When your chosen language isn't available natively,
+            we ask YouTube to auto-translate from whichever caption track the video
+            does have, so quality depends on both that original track (manual captions
+            are more accurate than auto-generated ones) and YouTube's own translation
+            engine.
+          </p>
+          <p className="about-text">
+            Tapping any word in the subtitles looks up a quick translation into the
+            other language you've chosen, shown right above the word. It's a fast,
+            free lookup rather than a full dictionary — great for a quick "what does
+            that mean," but for nuance or grammar it's worth double-checking with a
+            proper dictionary. Your last 20 lookups are saved under the History tab.
+          </p>
+        </div>
+      )}
+
       {tab === 'support' && (
         <div className="support-tab">
           <p className="support-text">
-            SubLingo is free to use. If it's helped you learn a language, a donation goes a long way.
+            SubLingo is completely free to use. If it has been helping you learn a language, any donation will motivate me even more to continue this project.
           </p>
           <button
             className="donate-btn"
-            onClick={() => window.open(PAYPAL_DONATE_URL, '_blank')}
+            onClick={() => window.open(KOFI_DONATE_URL, '_blank')}
           >
-            Donate via PayPal
+            Support on Ko-fi
           </button>
         </div>
       )}

@@ -1,7 +1,7 @@
 * { box-sizing: border-box; }
 
 .app-root {
-  width: 300px;
+  width: 360px;
   padding: 12px 14px;
   background: #0f0f0f;
   color: #f1f1f1;
@@ -347,4 +347,10 @@
   color: #666;
   flex-shrink: 0;
   margin-left: 8px;
+}
+
+.about-section--tab {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }

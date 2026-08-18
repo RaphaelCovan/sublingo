@@ -5,14 +5,9 @@ html {
 html, body {
   margin: 0;
   padding: 0;
-  width: 320px;
+  width: 360px;
 }
 
-/* Chrome popups have a fixed max height — when content (like the About
-   section) exceeds it, a real scrollbar appears. color-scheme: dark above
-   makes it match the UI instead of defaulting to white; this slims it down
-   further rather than removing it, since removing it entirely would make
-   overflowing content unreachable. */
 ::-webkit-scrollbar {
   width: 6px;
 }
