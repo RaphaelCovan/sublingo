@@ -4,6 +4,8 @@
 
 SubLingo is a browser extension that overlays two synchronized subtitle tracks on top of any YouTube video — your native language and the language you're learning — so you can follow along and pick up vocabulary in context, without leaving the video.
 
+**[Install SubLingo from the Chrome Web Store](CHROME_WEB_STORE_LINK_HERE)**
+
 ---
 
 ## Features
@@ -36,9 +38,15 @@ Because SubLingo relies entirely on captions YouTube itself provides:
 
 ---
 
-## Installation (development mode)
+## Installation
 
-SubLingo isn't yet published to the Chrome Web Store. To run it locally:
+The easiest way to get SubLingo is straight from the Chrome Web Store:
+
+**[Install SubLingo](CHROME_WEB_STORE_LINK_HERE)**
+
+Once installed, open any YouTube video and the SubLingo overlay will appear automatically once captions are available.
+
+### Running from source (for development)
 
 ```bash
 git clone https://github.com/RaphaelCovan/sublingo.git
@@ -53,8 +61,6 @@ Then load it into Chrome:
 2. Enable **Developer mode** (top right)
 3. Click **Load unpacked**
 4. Select the `dist` folder produced by the dev/build command
-
-Open any YouTube video and the SubLingo overlay should appear automatically once captions are available.
 
 ---
 
@@ -90,7 +96,7 @@ src/
 - **YouTube only**, for now — see [Roadmap](#roadmap).
 - Requires the video to have *some* caption track (manual or auto-generated) in a language SubLingo can translate from.
 - Click-to-translate uses word-level lookups rather than full sentence context, so results can occasionally miss nuance that a native speaker would catch from surrounding context.
-- **Chrome-only**, for now — (Manifest V3, CRXJS-based build).
+- Chrome-only (Manifest V3, CRXJS-based build).
 
 ---
 
@@ -98,29 +104,25 @@ src/
 
 - Support for additional streaming platforms beyond YouTube.
 - More context-aware word translations.
-- Chrome Web Store listing.
 
 ---
 
-## Contributing
+## Feedback & bug reports
 
-Issues and pull requests are welcome. If you run into a bug, please include:
-- The video URL you were watching
-- Your primary/learning language settings
-- Console output from the page (`F12` → Console), if relevant
+SubLingo is developed solo, and isn't currently open to outside code contributions. If you run into a bug, have a feature request, or just want to share feedback, reach out at **sublingosupport@gmail.com** — if it's a bug, including the video URL, your primary/learning language settings, and any relevant console output (`F12` → Console) helps a lot.
 
 ---
 
 ## Support
 
-SubLingo is free and developed independently. If it's helped you learn a language, consider [supporting the project](https://ko-fi.com/YOUR_KOFI_USERNAME) — it goes directly toward keeping development going.
+SubLingo is free and developed independently. If it's helped you learn a language, consider [supporting the project](https://ko-fi.com/sublingo) — it goes directly toward keeping development going.
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details. You're free to use, modify, and redistribute this code, provided the original copyright notice is retained.
 
 ---
 
-Developed by [@covan182](https://github.com/covan182)
+Developed by [@RaphaelCovan](https://github.com/RaphaelCovan)
