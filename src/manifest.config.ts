@@ -7,9 +7,17 @@ export default defineManifest({
   description: 'Learn languages by watching YouTube with dual subtitles.',
   action: { default_popup: 'index.html' },
   permissions: ['storage'],
-  host_permissions: ['https://www.youtube.com/*', 'https://*.youtube.com/*'],
+  host_permissions: [
+    'https://www.youtube.com/*',
+    'https://*.youtube.com/*',
+    'https://translate.googleapis.com/*',
+  ],
+  background: {
+    service_worker: 'src/background/index.ts',
+    type: 'module',
+  },
   content_security_policy: {
-  extension_pages: "script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;",
+    extension_pages: "script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;",
   },
   content_scripts: [
     {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getSettings, setSettings } from './shared/storage';
-import type { SubLingoSettings, CaptionStyle } from './shared/storage';
+import { getSettings, setSettings, clearWordHistory } from './shared/storage';
+import type { SubLingoSettings, CaptionStyle, HistoryEntry } from './shared/storage';
 import { FONT_FAMILIES, DEFAULT_CAPTION_STYLE, DEFAULT_FONT_SIZE, DEFAULT_OVERLAY_LAYOUT, GOOGLE_FONTS_URL } from './shared/storage';
 import { BUILT_IN_PRESETS } from './shared/presets';
 import { LANGUAGES } from './shared/languages';
@@ -74,9 +74,19 @@ const LanguagePicker = ({
   );
 };
 
+const timeAgo = (timestamp: number) => {
+  const diffSec = Math.floor((Date.now() - timestamp) / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+};
+
 const App = () => {
   const [settings, setLocalSettings] = useState<SubLingoSettings | null>(null);
-  const [tab, setTab] = useState<'settings' | 'appearance' | 'support'>('settings');
+  const [tab, setTab] = useState<'settings' | 'appearance' | 'history' | 'support'>('settings');
   const [addingPreset, setAddingPreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,6 +104,19 @@ const App = () => {
     document.head.appendChild(link);
   }, []);
 
+  // The video page writes new history entries while the popup may already
+  // be open — keep the list live rather than only reflecting what existed
+  // at the moment the popup happened to open.
+  useEffect(() => {
+    const handleChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.wordHistory) {
+        setLocalSettings(prev => prev ? { ...prev, wordHistory: changes.wordHistory.newValue as HistoryEntry[] } : prev);
+      }
+    };
+    chrome.storage.onChanged.addListener(handleChange);
+    return () => chrome.storage.onChanged.removeListener(handleChange);
+  }, []);
+
   const update = (patch: Partial<SubLingoSettings>) => {
     if (!settings) return;
     const next = { ...settings, ...patch };
@@ -101,9 +124,6 @@ const App = () => {
     setSettings(patch);
   };
 
-  // Debounced so rapid slider drags (fontSize, borderWidth, opacity) don't
-  // hit chrome.storage's write-rate limit — see earlier fix for the same
-  // issue that broke the popup entirely before this was in place.
   const updateDebounced = (patch: Partial<SubLingoSettings>) => {
     if (!settings) return;
     const next = { ...settings, ...patch };
@@ -120,8 +140,6 @@ const App = () => {
     updateDebounced({ captionStyle: { ...settings.captionStyle, ...patch } });
   };
 
-  // Presets intentionally only touch captionStyle — fontSize is left
-  // completely alone so a preset never resets the user's chosen size.
   const applyPreset = (style: CaptionStyle) => {
     update({ captionStyle: style });
   };
@@ -151,6 +169,11 @@ const App = () => {
     update({ captionStyle: DEFAULT_CAPTION_STYLE, fontSize: DEFAULT_FONT_SIZE, overlayLayout: DEFAULT_OVERLAY_LAYOUT });
   };
 
+  const handleClearHistory = () => {
+    clearWordHistory();
+    setLocalSettings(prev => prev ? { ...prev, wordHistory: [] } : prev);
+  };
+
   if (!settings) return <div className="app-root loading">Loading…</div>;
 
   return (
@@ -173,13 +196,16 @@ const App = () => {
       </div>
 
       <div className="tabs">
-        <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')}>
+        <button className={`tab ${tab === 'settings' ? 'active' : ''}`} data-label="Languages" onClick={() => setTab('settings')}>
           Languages
         </button>
-        <button className={`tab ${tab === 'appearance' ? 'active' : ''}`} onClick={() => setTab('appearance')}>
+        <button className={`tab ${tab === 'appearance' ? 'active' : ''}`} data-label="Appearance" onClick={() => setTab('appearance')}>
           Appearance
         </button>
-        <button className={`tab ${tab === 'support' ? 'active' : ''}`} onClick={() => setTab('support')}>
+        <button className={`tab ${tab === 'history' ? 'active' : ''}`} data-label="History" onClick={() => setTab('history')}>
+          History
+        </button>
+        <button className={`tab ${tab === 'support' ? 'active' : ''}`} data-label="Support Us" onClick={() => setTab('support')}>
           Support Us
         </button>
       </div>
@@ -201,13 +227,18 @@ const App = () => {
           <div className="about-section">
             <h3 className="about-title">About SubLingo</h3>
             <p className="about-text">
-              SubLingo works by requesting YouTube's own captions — it doesn't generate
+              SubLingo works by requesting YouTube's own captions. It doesn't generate
               translations itself. If a video has no captions at all, subtitles won't
               appear here either. When your chosen language isn't available natively,
               we ask YouTube to auto-translate from whichever caption track the video
               does have, so quality depends on both that original track (manual captions
               are more accurate than auto-generated ones) and YouTube's own translation
               engine.
+            </p>
+            <p className="about-text">
+              Tapping any word in the subtitles looks up a quick translation into the
+              other language you've chosen. It's instant but for nuance or grammar it's worth double-checking with a
+              proper dictionary.
             </p>
           </div>
         </>
@@ -340,6 +371,32 @@ const App = () => {
           <button className="reset-btn" onClick={resetPosition}>Reset position</button>
           <div className="app-footer">Drag the captions on the video to reposition them.</div>
         </>
+      )}
+
+      {tab === 'history' && (
+        <div className="history-tab">
+          {settings.wordHistory.length === 0 ? (
+            <p className="support-text">
+              No words looked up yet. Tap a word in the subtitles on YouTube to see its translation here.
+            </p>
+          ) : (
+            <>
+              <div className="history-list">
+                {settings.wordHistory.map((entry, i) => (
+                  <div key={i} className="history-item">
+                    <div className="history-words">
+                      <span className="history-word">{entry.word}</span>
+                      <span className="history-arrow">→</span>
+                      <span className="history-translation">{entry.translation}</span>
+                    </div>
+                    <span className="history-time">{timeAgo(entry.timestamp)}</span>
+                  </div>
+                ))}
+              </div>
+              <button className="reset-btn" onClick={handleClearHistory}>Clear history</button>
+            </>
+          )}
+        </div>
       )}
 
       {tab === 'support' && (

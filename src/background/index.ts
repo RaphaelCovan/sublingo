@@ -1,52 +1,42 @@
 // src/background/index.ts
-console.log('[SubLingo Background] service worker alive');
+console.log('[SubLingo Background] service worker alive (translation service)');
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type !== 'FETCH_SUBTITLES') return;
+// Our internal language codes mostly match Google Translate's endpoint
+// directly, but a few families diverge — map those explicitly rather than
+// naively splitting on '-', which would turn zh-Hans into 'zh' (ambiguous)
+// or pt-BR into 'pt' (loses the Brazilian-specific variant Google supports).
+function toGoogleLangCode(code: string): string {
+  const overrides: Record<string, string> = {
+    'zh-Hans': 'zh-CN',
+    'zh-Hant': 'zh-TW',
+  };
+  return overrides[code] ?? code;
+}
 
-  const tabId = sender.tab?.id;
-  if (!tabId || !message.url) {
-    sendResponse({ success: false, error: 'Missing tabId or url' });
-    return;
-  }
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type !== 'SUBLINGO_TRANSLATE_WORD') return;
 
-  chrome.scripting.executeScript({
-    target: { tabId },
-    world: 'MAIN',
-    func: async (url: string) => {
-      try {
-        const response = await fetch(url, { credentials: 'include' });
-        const text = await response.text();
-        return {
-          ok: response.ok,
-          status: response.status,
-          statusText: response.statusText,
-          length: text.length,
-          snippet: text.slice(0, 200),
-          data: text,
-        };
-      } catch (e: any) {
-        return {
-          ok: false,
-          status: -1,
-          statusText: 'EXCEPTION',
-          length: 0,
-          snippet: e?.message ?? String(e),
-          data: null,
-        };
-      }
-    },
-    args: [message.url]
-  })
-    .then(results => {
-      const r = results[0]?.result;
-      console.log(
-        `[SubLingo Background] status=${r?.status} ok=${r?.ok} length=${r?.length} snippet="${r?.snippet}" url=${message.url}`
-      );
-      sendResponse({ success: !!r?.data, data: r?.data ?? null, status: r?.status });
+  const { word, sourceLang, targetLang } = message;
+  // sourceLang is now passed explicitly (the language of whichever subtitle
+  // line was actually clicked) instead of relying on Google's auto-detect —
+  // auto-detect on a single short word is unreliable (e.g. Polish "i"
+  // meaning "and" was being detected as English "I" with no context to
+  // disambiguate from).
+  const sl = sourceLang ? toGoogleLangCode(sourceLang) : 'auto';
+  const tl = toGoogleLangCode(targetLang);
+
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(word)}`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      const translated = Array.isArray(data?.[0])
+        ? data[0].map((seg: any) => seg[0]).join('')
+        : null;
+      sendResponse({ success: !!translated, translation: translated });
     })
     .catch(err => {
-      console.error('[SubLingo Background] executeScript failed:', err);
+      console.warn('[SubLingo Background] Translation fetch failed', err);
       sendResponse({ success: false, error: String(err) });
     });
 

@@ -7,8 +7,7 @@ export interface CaptionStyle {
   borderWidth: number;
   backgroundOpacity: number;
 }
-// Fractional position (0–1) within the video player's box — see
-// SubtitleOverlay for why this stays consistent across normal/theater/fullscreen.
+
 export interface OverlayLayout {
   fx: number | null;
   fy: number | null;
@@ -20,6 +19,16 @@ export interface CaptionPreset {
   style: CaptionStyle;
 }
 
+// Duplicates are intentional (not deduplicated) — a raw click log rather
+// than a distinct-vocabulary list, per how the user wants to read it back.
+export interface HistoryEntry {
+  word: string;
+  translation: string;
+  sourceLang: string;
+  targetLang: string;
+  timestamp: number;
+}
+
 export interface SubLingoSettings {
   enabled: boolean;
   primaryLanguage: string;
@@ -28,6 +37,7 @@ export interface SubLingoSettings {
   fontSize: number;
   overlayLayout: OverlayLayout;
   customPresets: CaptionPreset[];
+  wordHistory: HistoryEntry[];
 }
 
 export const FONT_FAMILIES = [
@@ -43,8 +53,6 @@ export const FONT_FAMILIES = [
   '"Nunito Sans", sans-serif',
 ];
 
-// Google Fonts families that need to be loaded — a subset of the names
-// above that aren't already system-available.
 export const GOOGLE_FONT_FAMILIES = ['Inter:wght@400;700', 'Nunito+Sans:wght@600;700'];
 export const GOOGLE_FONTS_URL =
   `https://fonts.googleapis.com/css2?${GOOGLE_FONT_FAMILIES.map(f => `family=${f}`).join('&')}&display=swap`;
@@ -60,24 +68,21 @@ export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
 };
 
 export const DEFAULT_FONT_SIZE = 26;
-
 export const DEFAULT_OVERLAY_LAYOUT: OverlayLayout = { fx: null, fy: null };
+export const MAX_HISTORY = 20;
 
-// Rarely-changed, worth syncing across the user's devices.
 const SYNC_DEFAULTS = {
   enabled: true,
   primaryLanguage: 'en',
   secondaryLanguage: 'pt-BR',
 };
 
-// fontSize now lives alongside the other frequently-adjusted, high-write-
-// frequency settings in local storage (see the write-rate-limit note from
-// when we split sync/local originally) — same reasoning as captionStyle.
 const LOCAL_DEFAULTS = {
   captionStyle: DEFAULT_CAPTION_STYLE,
   fontSize: DEFAULT_FONT_SIZE,
   overlayLayout: DEFAULT_OVERLAY_LAYOUT,
   customPresets: [] as CaptionPreset[],
+  wordHistory: [] as HistoryEntry[],
 };
 
 export const DEFAULT_SETTINGS: SubLingoSettings = {
@@ -96,6 +101,7 @@ export const getSettings = (): Promise<SubLingoSettings> => {
           fontSize: (localItems as any).fontSize ?? DEFAULT_FONT_SIZE,
           overlayLayout: { ...DEFAULT_OVERLAY_LAYOUT, ...(localItems as any).overlayLayout },
           customPresets: (localItems as any).customPresets ?? [],
+          wordHistory: (localItems as any).wordHistory ?? [],
         } as SubLingoSettings);
       });
     });
@@ -107,7 +113,7 @@ export const setSettings = (settings: Partial<SubLingoSettings>): Promise<void> 
   const localPatch: Record<string, unknown> = {};
 
   for (const key of Object.keys(settings) as (keyof SubLingoSettings)[]) {
-    if (key === 'captionStyle' || key === 'overlayLayout' || key === 'customPresets' || key === 'fontSize') {
+    if (key === 'captionStyle' || key === 'overlayLayout' || key === 'customPresets' || key === 'fontSize' || key === 'wordHistory') {
       localPatch[key] = settings[key];
     } else {
       syncPatch[key] = settings[key];
@@ -122,4 +128,23 @@ export const setSettings = (settings: Partial<SubLingoSettings>): Promise<void> 
     ops.push(new Promise((resolve) => chrome.storage.local.set(localPatch, () => resolve())));
   }
   return Promise.all(ops).then(() => undefined);
+};
+
+// Direct read-modify-write on wordHistory specifically — avoids needing the
+// full settings object just to append one entry, and stays correct even if
+// called from the content script while the popup independently touches
+// other local-storage fields.
+export const addWordHistoryEntry = (entry: Omit<HistoryEntry, 'timestamp'>): Promise<HistoryEntry[]> => {
+  return new Promise((resolve) => {
+    chrome.storage.local.get({ wordHistory: [] as HistoryEntry[] }, (items) => {
+      const next = [{ ...entry, timestamp: Date.now() }, ...(items.wordHistory as HistoryEntry[])].slice(0, MAX_HISTORY);
+      chrome.storage.local.set({ wordHistory: next }, () => resolve(next));
+    });
+  });
+};
+
+export const clearWordHistory = (): Promise<void> => {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ wordHistory: [] }, () => resolve());
+  });
 };

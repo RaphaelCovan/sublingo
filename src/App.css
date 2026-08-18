@@ -60,7 +60,7 @@
 }
 .tab {
   flex: 1;
-  padding: 6px 0;
+  padding: 6px 4px;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -68,9 +68,21 @@
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  position: relative;
 }
-.tab.active { background: #2a2a2a; color: #3ea6ff; }
+.tab.active { background: #2a2a2a; color: #3ea6ff; font-weight: 700; }
 
+/* Reserves the bold variant's width via an invisible duplicate, so the tab
+   doesn't visibly resize/shift when selected — only the color and
+   background change, not the layout. */
+.tab::after {
+  content: attr(data-label);
+  display: block;
+  height: 0;
+  overflow: hidden;
+  font-weight: 700;
+  visibility: hidden;
+}
 .picker { margin-bottom: 12px; position: relative; }
 .picker-label { display: block; font-size: 11.5px; color: #aaa; margin-bottom: 5px; }
 
@@ -282,4 +294,57 @@
   background: #1c1c1c;
   color: #999;
   border: 1px solid #333;
+}
+
+.history-tab {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-list {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  border-bottom: 1px solid #1f1f1f;
+}
+
+.history-words {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.history-word {
+  font-weight: 600;
+  color: #f1f1f1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 90px;
+}
+
+.history-arrow { color: #666; }
+
+.history-translation {
+  color: #3ea6ff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 90px;
+}
+
+.history-time {
+  font-size: 10.5px;
+  color: #666;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
