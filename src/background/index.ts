@@ -1,5 +1,5 @@
 // src/background/index.ts
-console.log('[SubLingo Background] service worker alive (translation service)');
+console.log('[Overheard Background] service worker alive (translation service)');
 
 // Our internal language codes mostly match Google Translate's endpoint
 // directly, but a few families diverge — map those explicitly rather than
@@ -14,7 +14,7 @@ function toGoogleLangCode(code: string): string {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type !== 'SUBLINGO_TRANSLATE_WORD') return;
+  if (message.type !== 'OVERHEARD_TRANSLATE_WORD') return;
 
   const { word, sourceLang, targetLang } = message;
   // sourceLang is now passed explicitly (the language of whichever subtitle
@@ -36,7 +36,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       sendResponse({ success: !!translated, translation: translated });
     })
     .catch(err => {
-      console.warn('[SubLingo Background] Translation fetch failed', err);
+      console.warn('[Overheard Background] Translation fetch failed', err);
       sendResponse({ success: false, error: String(err) });
     });
 

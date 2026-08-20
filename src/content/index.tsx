@@ -22,9 +22,9 @@ function setNativeCaptionsHidden(hidden: boolean) {
 
 const requestTranslation = (word: string, sourceLang: string, targetLang: string): Promise<string | null> => {
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: 'SUBLINGO_TRANSLATE_WORD', word, sourceLang, targetLang }, (res) => {
+    chrome.runtime.sendMessage({ type: 'OVERHEARD_TRANSLATE_WORD', word, sourceLang, targetLang }, (res) => {
       if (chrome.runtime.lastError) {
-        console.warn('[SubLingo] Translation message error:', chrome.runtime.lastError.message);
+        console.warn('[Overheard] Translation message error:', chrome.runtime.lastError.message);
         resolve(null);
         return;
       }
@@ -54,7 +54,7 @@ const App = () => {
   const getLiveTracks = (): Promise<LiveTrack[]> => {
     return new Promise((resolve) => {
       pendingTracksResolve.current = resolve;
-      window.postMessage({ type: 'SUBLINGO_GET_TRACKS' }, '*');
+      window.postMessage({ type: 'OVERHEARD_GET_TRACKS' }, '*');
       setTimeout(() => {
         if (pendingTracksResolve.current) {
           pendingTracksResolve.current = null;
@@ -69,7 +69,7 @@ const App = () => {
       pendingResolve.current = resolve;
       pendingMatcher.current = matcher;
       pendingTimer.current = setTimeout(() => {
-        console.warn('[SubLingo] Capture timed out waiting for track');
+        console.warn('[Overheard] Capture timed out waiting for track');
         pendingResolve.current = null;
         pendingMatcher.current = null;
         resolve(null);
@@ -83,7 +83,7 @@ const App = () => {
       return url.includes(`lang=${sourceLangCode}`) && !url.includes('tlang=');
     };
     const capturePromise = waitForCapture(matcher);
-    window.postMessage({ type: 'SUBLINGO_SET_PLAYER_LANG', sourceLangCode, isTranslation, targetLangCode }, '*');
+    window.postMessage({ type: 'OVERHEARD_SET_PLAYER_LANG', sourceLangCode, isTranslation, targetLangCode }, '*');
     return capturePromise;
   };
 
@@ -95,7 +95,7 @@ const App = () => {
   ): Promise<string | null> => {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (attempt > 0) {
-        console.warn(`[SubLingo] Retry ${attempt} for`, sourceLangCode, isTranslation ? `-> ${targetLangCode}` : '');
+        console.warn(`[Overheard] Retry ${attempt} for`, sourceLangCode, isTranslation ? `-> ${targetLangCode}` : '');
         await new Promise(r => setTimeout(r, 500));
       }
       const raw = await requestTrack(sourceLangCode, isTranslation, targetLangCode);
@@ -131,7 +131,7 @@ const App = () => {
 
     const tracks = await getLiveTracks();
     if (tracks.length === 0) {
-      console.warn('[SubLingo] No caption tracks found for this video');
+      console.warn('[Overheard] No caption tracks found for this video');
       engine.current.setPrimaryEntries([]);
       engine.current.setSecondaryEntries([]);
       return;
@@ -143,9 +143,9 @@ const App = () => {
     if (primaryConfig) {
       const primaryRaw = await requestTrackWithRetry(primaryConfig.sourceLangCode, primaryConfig.isTranslation, primaryConfig.targetLangCode);
       engine.current.setPrimaryEntries(primaryRaw ? adapter.parse(primaryRaw) : []);
-      console.log('[SubLingo] Primary captured:', !!primaryRaw);
+      console.log('[Overheard] Primary captured:', !!primaryRaw);
     } else {
-      console.warn('[SubLingo] Could not resolve a primary track config');
+      console.warn('[Overheard] Could not resolve a primary track config');
     }
 
     await new Promise(r => setTimeout(r, 300));
@@ -153,9 +153,9 @@ const App = () => {
     if (secondaryConfig) {
       const secondaryRaw = await requestTrackWithRetry(secondaryConfig.sourceLangCode, secondaryConfig.isTranslation, secondaryConfig.targetLangCode);
       engine.current.setSecondaryEntries(secondaryRaw ? adapter.parse(secondaryRaw) : []);
-      console.log('[SubLingo] Secondary captured:', !!secondaryRaw);
+      console.log('[Overheard] Secondary captured:', !!secondaryRaw);
     } else {
-      console.warn('[SubLingo] Could not resolve a secondary track config');
+      console.warn('[Overheard] Could not resolve a secondary track config');
     }
   };
 
@@ -206,7 +206,7 @@ const App = () => {
     };
     
     const handleNavigate = () => {
-      console.log('[SubLingo] yt-navigate-finish — reloading subtitles for new video');
+      console.log('[Overheard] yt-navigate-finish — reloading subtitles for new video');
       engine.current.setPrimaryEntries([]);
       engine.current.setSecondaryEntries([]);
       setDisplayPrimary('');
@@ -218,14 +218,14 @@ const App = () => {
     const handleMessage = (event: MessageEvent) => {
       if (event.source !== window) return;
 
-      if (event.data.type === 'SUBLINGO_TRACKS' && pendingTracksResolve.current) {
+      if (event.data.type === 'OVERHEARD_TRACKS' && pendingTracksResolve.current) {
         const resolve = pendingTracksResolve.current;
         pendingTracksResolve.current = null;
         resolve(event.data.tracks ?? []);
         return;
       }
 
-      if (event.data.type === 'SUBLINGO_DATA') {
+      if (event.data.type === 'OVERHEARD_DATA') {
         const url = event.data.url as string;
         if (pendingResolve.current && pendingMatcher.current) {
           if (pendingMatcher.current(url)) {
@@ -235,7 +235,7 @@ const App = () => {
             pendingMatcher.current = null;
             resolve(event.data.data);
           } else {
-            console.log('[SubLingo] Ignored non-matching timedtext packet:', url);
+            console.log('[Overheard] Ignored non-matching timedtext packet:', url);
           }
         }
       }
@@ -309,22 +309,22 @@ function reparentContainer(container: HTMLElement) {
 }
 
 function injectUI() {
-  if (document.getElementById('sublingo-root')) return;
+  if (document.getElementById('overheard-root')) return;
 
   nativeCaptionStyleEl = document.createElement('style');
   nativeCaptionStyleEl.textContent = '.ytp-caption-window-container { display: none !important; }';
   (document.head || document.documentElement).appendChild(nativeCaptionStyleEl);
 
-  if (!document.getElementById('sublingo-google-fonts')) {
+  if (!document.getElementById('overheard-google-fonts')) {
     const fontLink = document.createElement('link');
-    fontLink.id = 'sublingo-google-fonts';
+    fontLink.id = 'overheard-google-fonts';
     fontLink.rel = 'stylesheet';
     fontLink.href = GOOGLE_FONTS_URL;
     (document.head || document.documentElement).appendChild(fontLink);
   }
 
   const container = document.createElement('div');
-  container.id = 'sublingo-root';
+  container.id = 'overheard-root';
   Object.assign(container.style, { zIndex: '2147483647', pointerEvents: 'none' });
 
   reparentContainer(container);

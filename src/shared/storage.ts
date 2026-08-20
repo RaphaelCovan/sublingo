@@ -29,7 +29,7 @@ export interface HistoryEntry {
   timestamp: number;
 }
 
-export interface SubLingoSettings {
+export interface OverheardSettings {
   enabled: boolean;
   primaryLanguage: string;
   secondaryLanguage: string;
@@ -85,12 +85,12 @@ const LOCAL_DEFAULTS = {
   wordHistory: [] as HistoryEntry[],
 };
 
-export const DEFAULT_SETTINGS: SubLingoSettings = {
+export const DEFAULT_SETTINGS: OverheardSettings = {
   ...SYNC_DEFAULTS,
   ...LOCAL_DEFAULTS,
 };
 
-export const getSettings = (): Promise<SubLingoSettings> => {
+export const getSettings = (): Promise<OverheardSettings> => {
   return new Promise((resolve) => {
     chrome.storage.sync.get(SYNC_DEFAULTS, (syncItems) => {
       chrome.storage.local.get(LOCAL_DEFAULTS, (localItems) => {
@@ -102,17 +102,17 @@ export const getSettings = (): Promise<SubLingoSettings> => {
           overlayLayout: { ...DEFAULT_OVERLAY_LAYOUT, ...(localItems as any).overlayLayout },
           customPresets: (localItems as any).customPresets ?? [],
           wordHistory: (localItems as any).wordHistory ?? [],
-        } as SubLingoSettings);
+        } as OverheardSettings);
       });
     });
   });
 };
 
-export const setSettings = (settings: Partial<SubLingoSettings>): Promise<void> => {
+export const setSettings = (settings: Partial<OverheardSettings>): Promise<void> => {
   const syncPatch: Record<string, unknown> = {};
   const localPatch: Record<string, unknown> = {};
 
-  for (const key of Object.keys(settings) as (keyof SubLingoSettings)[]) {
+  for (const key of Object.keys(settings) as (keyof OverheardSettings)[]) {
     if (key === 'captionStyle' || key === 'overlayLayout' || key === 'customPresets' || key === 'fontSize' || key === 'wordHistory') {
       localPatch[key] = settings[key];
     } else {

@@ -70,7 +70,7 @@ const SubtitleOverlay: React.FC<Props> = ({
   const clickCandidate = useRef<ClickCandidate | null>(null);
 
   useEffect(() => {
-    const container = document.getElementById('sublingo-root');
+    const container = document.getElementById('overheard-root');
     if (!container) return;
     const update = () => {
       const rect = container.getBoundingClientRect();
@@ -111,7 +111,7 @@ const SubtitleOverlay: React.FC<Props> = ({
   };
 
   const handleWordActivate = (candidate: ClickCandidate, clientX: number, clientY: number) => {
-    const container = document.getElementById('sublingo-root');
+    const container = document.getElementById('overheard-root');
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
     const px = clientX - containerRect.left;
@@ -133,7 +133,7 @@ const SubtitleOverlay: React.FC<Props> = ({
   };
 
   const handleDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
-    const container = document.getElementById('sublingo-root');
+    const container = document.getElementById('overheard-root');
     const box = boxRef.current;
     if (!container || !box) return;
 
@@ -188,7 +188,7 @@ const SubtitleOverlay: React.FC<Props> = ({
       return (
         <span
           key={i}
-          className="sublingo-word"
+          className="overheard-word"
           data-word={word}
           data-source-lang={lineLang}
           data-target-lang={targetLang}
@@ -205,9 +205,9 @@ const SubtitleOverlay: React.FC<Props> = ({
   return (
     <>
       <style>{`
-        .sublingo-word { cursor: pointer; }
-        .sublingo-word:hover { text-decoration: underline; text-underline-offset: 3px; }
-        .sublingo-speaker-btn {
+        .overheard-word { cursor: pointer; }
+        .overheard-word:hover { text-decoration: underline; text-underline-offset: 3px; }
+        .overheard-speaker-btn {
           background: transparent;
           border: none;
           color: inherit;
@@ -219,8 +219,8 @@ const SubtitleOverlay: React.FC<Props> = ({
           vertical-align: middle;
           opacity: 0.85;
         }
-        .sublingo-speaker-btn:hover { opacity: 1; }
-        .sublingo-popover-row {
+        .overheard-speaker-btn:hover { opacity: 1; }
+        .overheard-popover-row {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -301,7 +301,7 @@ const SubtitleOverlay: React.FC<Props> = ({
             <>
               {/* Original word — smaller, muted, on top, Google Translate-style */}
               <div
-                className="sublingo-popover-row"
+                className="overheard-popover-row"
                 style={{
                   fontSize: '13px',
                   color: '#aaa',
@@ -311,7 +311,7 @@ const SubtitleOverlay: React.FC<Props> = ({
               >
                 <span>{popover.word}</span>
                 <button
-                  className="sublingo-speaker-btn"
+                  className="overheard-speaker-btn"
                   title="Listen (original)"
                   onClick={() => speakText(popover.word, popover.sourceLang, speechVolume)}
                 >
@@ -321,7 +321,7 @@ const SubtitleOverlay: React.FC<Props> = ({
 
               {/* Translation — larger, bold, below */}
               <div
-                className="sublingo-popover-row"
+                className="overheard-popover-row"
                 style={{
                   fontSize: '18px',
                   fontWeight: resolveFontWeight(600, popover.targetLang),
@@ -332,7 +332,7 @@ const SubtitleOverlay: React.FC<Props> = ({
                 <span>{popover.translation ?? 'No translation found'}</span>
                 {popover.translation && (
                   <button
-                    className="sublingo-speaker-btn"
+                    className="overheard-speaker-btn"
                     title="Listen (translation)"
                     onClick={() => speakText(popover.translation!, popover.targetLang, speechVolume)}
                   >

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getSettings, setSettings, clearWordHistory } from './shared/storage';
-import type { SubLingoSettings, CaptionStyle, HistoryEntry } from './shared/storage';
+import type { OverheardSettings, CaptionStyle, HistoryEntry } from './shared/storage';
 import { FONT_FAMILIES, DEFAULT_CAPTION_STYLE, DEFAULT_FONT_SIZE, DEFAULT_OVERLAY_LAYOUT, GOOGLE_FONTS_URL } from './shared/storage';
 import { BUILT_IN_PRESETS } from './shared/presets';
 import { LANGUAGES } from './shared/languages';
@@ -98,7 +98,7 @@ const timeAgo = (timestamp: number) => {
 type Tab = 'settings' | 'appearance' | 'history' | 'about' | 'support';
 
 const App = () => {
-  const [settings, setLocalSettings] = useState<SubLingoSettings | null>(null);
+  const [settings, setLocalSettings] = useState<OverheardSettings | null>(null);
   const [tab, setTab] = useState<Tab>('settings');
   const [addingPreset, setAddingPreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
@@ -109,9 +109,9 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (document.getElementById('sublingo-google-fonts')) return;
+    if (document.getElementById('overheard-google-fonts')) return;
     const link = document.createElement('link');
-    link.id = 'sublingo-google-fonts';
+    link.id = 'overheard-google-fonts';
     link.rel = 'stylesheet';
     link.href = GOOGLE_FONTS_URL;
     document.head.appendChild(link);
@@ -127,14 +127,14 @@ const App = () => {
     return () => chrome.storage.onChanged.removeListener(handleChange);
   }, []);
 
-  const update = (patch: Partial<SubLingoSettings>) => {
+  const update = (patch: Partial<OverheardSettings>) => {
     if (!settings) return;
     const next = { ...settings, ...patch };
     setLocalSettings(next);
     setSettings(patch);
   };
 
-  const updateDebounced = (patch: Partial<SubLingoSettings>) => {
+  const updateDebounced = (patch: Partial<OverheardSettings>) => {
     if (!settings) return;
     const next = { ...settings, ...patch };
     setLocalSettings(next);
@@ -189,7 +189,7 @@ const App = () => {
   return (
     <div className="app-root">
       <div className="app-header">
-        <span className="app-title">SubLingo</span>
+        <span className="app-title">Overheard</span>
         <div className="header-actions">
           {tab === 'appearance' && (
             <button className="reset-all-btn" onClick={resetAppearance} title="Reset appearance to defaults">↺</button>
@@ -410,9 +410,9 @@ const App = () => {
 
       {tab === 'about' && (
         <div className="about-section about-section--tab">
-          <h3 className="about-title">About SubLingo</h3>
+          <h3 className="about-title">About Overheard</h3>
           <p className="about-text">
-            SubLingo works by requesting YouTube's own captions. It doesn't generate
+            Overheard works by requesting YouTube's own captions. It doesn't generate
               translations itself. If a video has no captions at all, subtitles won't
               appear here either. When your chosen language isn't available natively,
               we ask YouTube to auto-translate from whichever caption track the video
@@ -431,7 +431,7 @@ const App = () => {
       {tab === 'support' && (
         <div className="support-tab">
           <p className="support-text">
-            SubLingo is completely free to use. If it has been helping you learn a language, any donation will motivate me even more to continue this project.
+            Overheard is completely free to use. If it has been helping you learn a language, any donation will motivate me even more to continue this project.
           </p>
           <button
             className="donate-btn"
