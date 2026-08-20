@@ -413,19 +413,17 @@ const App = () => {
           <h3 className="about-title">About SubLingo</h3>
           <p className="about-text">
             SubLingo works by requesting YouTube's own captions. It doesn't generate
-            translations itself. If a video has no captions at all, subtitles won't
-            appear here either. When your chosen language isn't available natively,
-            we ask YouTube to auto-translate from whichever caption track the video
-            does have, so quality depends on both that original track (manual captions
-            are more accurate than auto-generated ones) and YouTube's own translation
-            engine.
+              translations itself. If a video has no captions at all, subtitles won't
+              appear here either. When your chosen language isn't available natively,
+              we ask YouTube to auto-translate from whichever caption track the video
+              does have, so quality depends on both that original track (manual captions
+              are more accurate than auto-generated ones) and YouTube's own translation
+              engine.
           </p>
           <p className="about-text">
             Tapping any word in the subtitles looks up a quick translation into the
-            other language you've chosen, shown right above the word. It's a fast,
-            free lookup rather than a full dictionary — great for a quick "what does
-            that mean," but for nuance or grammar it's worth double-checking with a
-            proper dictionary. Your last 20 lookups are saved under the History tab.
+              other language you've chosen, shown along with its pronunciation as well. It's instant but for nuance or grammar it's worth double-checking with a
+              proper dictionary.
           </p>
         </div>
       )}
