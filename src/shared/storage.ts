@@ -8,6 +8,8 @@ export interface CaptionStyle {
   backgroundOpacity: number;
 }
 
+
+
 export interface OverlayLayout {
   fx: number | null;
   fy: number | null;
@@ -29,6 +31,8 @@ export interface HistoryEntry {
   timestamp: number;
 }
 
+export type PopupTab = 'settings' | 'appearance' | 'history' | 'about' | 'support';
+
 export interface OverheardSettings {
   enabled: boolean;
   primaryLanguage: string;
@@ -38,6 +42,7 @@ export interface OverheardSettings {
   overlayLayout: OverlayLayout;
   customPresets: CaptionPreset[];
   wordHistory: HistoryEntry[];
+  activeTab: PopupTab;
 }
 
 export const FONT_FAMILIES = [
@@ -57,14 +62,16 @@ export const GOOGLE_FONT_FAMILIES = ['Inter:wght@400;700', 'Nunito+Sans:wght@600
 export const GOOGLE_FONTS_URL =
   `https://fonts.googleapis.com/css2?${GOOGLE_FONT_FAMILIES.map(f => `family=${f}`).join('&')}&display=swap`;
 
+// Default preset is now YouTube Classic's look, rather than a separate
+// blank-slate default — see BUILT_IN_PRESETS for the source of these values.
 export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
   fontFamily: FONT_FAMILIES[0],
   primaryColor: '#ffffff',
   primaryBorderColor: '#000000',
   secondaryColor: '#ffd60a',
   secondaryBorderColor: '#000000',
-  borderWidth: 1,
-  backgroundOpacity: 0,
+  borderWidth: 0,
+  backgroundOpacity: 0.75,
 };
 
 export const DEFAULT_FONT_SIZE = 26;
@@ -83,6 +90,7 @@ const LOCAL_DEFAULTS = {
   overlayLayout: DEFAULT_OVERLAY_LAYOUT,
   customPresets: [] as CaptionPreset[],
   wordHistory: [] as HistoryEntry[],
+  activeTab: 'settings' as PopupTab,
 };
 
 export const DEFAULT_SETTINGS: OverheardSettings = {
@@ -101,6 +109,7 @@ export const getSettings = (): Promise<OverheardSettings> => {
           fontSize: (localItems as any).fontSize ?? DEFAULT_FONT_SIZE,
           overlayLayout: { ...DEFAULT_OVERLAY_LAYOUT, ...(localItems as any).overlayLayout },
           customPresets: (localItems as any).customPresets ?? [],
+          activeTab: (localItems as any).activeTab ?? 'settings',
           wordHistory: (localItems as any).wordHistory ?? [],
         } as OverheardSettings);
       });
@@ -113,7 +122,7 @@ export const setSettings = (settings: Partial<OverheardSettings>): Promise<void>
   const localPatch: Record<string, unknown> = {};
 
   for (const key of Object.keys(settings) as (keyof OverheardSettings)[]) {
-    if (key === 'captionStyle' || key === 'overlayLayout' || key === 'customPresets' || key === 'fontSize' || key === 'wordHistory') {
+    if (key === 'captionStyle' || key === 'overlayLayout' || key === 'customPresets' || key === 'fontSize' || key === 'wordHistory' || key === 'activeTab') {
       localPatch[key] = settings[key];
     } else {
       syncPatch[key] = settings[key];
@@ -148,3 +157,4 @@ export const clearWordHistory = (): Promise<void> => {
     chrome.storage.local.set({ wordHistory: [] }, () => resolve());
   });
 };
+

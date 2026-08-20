@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getSettings, setSettings, clearWordHistory } from './shared/storage';
-import type { OverheardSettings, CaptionStyle, HistoryEntry } from './shared/storage';
+import type { OverheardSettings, CaptionStyle, HistoryEntry, PopupTab } from './shared/storage';
 import { FONT_FAMILIES, DEFAULT_CAPTION_STYLE, DEFAULT_FONT_SIZE, DEFAULT_OVERLAY_LAYOUT, GOOGLE_FONTS_URL } from './shared/storage';
 import { BUILT_IN_PRESETS } from './shared/presets';
 import { LANGUAGES } from './shared/languages';
@@ -9,6 +9,8 @@ import { KOFI_DONATE_URL } from './shared/donation';
 import { GITHUB_REPO_URL, DEVELOPER_HANDLE } from './shared/links';
 import './App.css';
 import { speakText } from './shared/speech';
+import logoUrl from './assets/logo.png';
+import soundwaveIcon from './shared/../assets/soundwave.svg';
 
 // Strips accents/diacritics for comparison, so "francais" still matches
 // "Français" — cheap addition that meaningfully helps search.
@@ -95,17 +97,18 @@ const timeAgo = (timestamp: number) => {
   return `${Math.floor(diffHr / 24)}d ago`;
 };
 
-type Tab = 'settings' | 'appearance' | 'history' | 'about' | 'support';
-
 const App = () => {
   const [settings, setLocalSettings] = useState<OverheardSettings | null>(null);
-  const [tab, setTab] = useState<Tab>('settings');
+  const [tab, setTab] = useState<PopupTab>('settings');
   const [addingPreset, setAddingPreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    getSettings().then(setLocalSettings);
+    getSettings().then((s) => {
+      setLocalSettings(s);
+      setTab(s.activeTab);
+    });
   }, []);
 
   useEffect(() => {
@@ -126,6 +129,11 @@ const App = () => {
     chrome.storage.onChanged.addListener(handleChange);
     return () => chrome.storage.onChanged.removeListener(handleChange);
   }, []);
+
+  const changeTab = (next: PopupTab) => {
+    setTab(next);
+    setSettings({ activeTab: next });
+  };
 
   const update = (patch: Partial<OverheardSettings>) => {
     if (!settings) return;
@@ -189,7 +197,7 @@ const App = () => {
   return (
     <div className="app-root">
       <div className="app-header">
-        <span className="app-title">Overheard</span>
+        <img src={logoUrl} alt="Overheard" className="app-logo" />
         <div className="header-actions">
           {tab === 'appearance' && (
             <button className="reset-all-btn" onClick={resetAppearance} title="Reset appearance to defaults">↺</button>
@@ -206,19 +214,19 @@ const App = () => {
       </div>
 
       <div className="tabs">
-        <button className={`tab ${tab === 'settings' ? 'active' : ''}`} data-label="Languages" onClick={() => setTab('settings')}>
+        <button className={`tab ${tab === 'settings' ? 'active' : ''}`} data-label="Languages" onClick={() => changeTab('settings')}>
           Languages
         </button>
-        <button className={`tab ${tab === 'appearance' ? 'active' : ''}`} data-label="Appearance" onClick={() => setTab('appearance')}>
+        <button className={`tab ${tab === 'appearance' ? 'active' : ''}`} data-label="Appearance" onClick={() => changeTab('appearance')}>
           Appearance
         </button>
-        <button className={`tab ${tab === 'history' ? 'active' : ''}`} data-label="History" onClick={() => setTab('history')}>
+        <button className={`tab ${tab === 'history' ? 'active' : ''}`} data-label="History" onClick={() => changeTab('history')}>
           History
         </button>
-        <button className={`tab ${tab === 'about' ? 'active' : ''}`} data-label="About" onClick={() => setTab('about')}>
+        <button className={`tab ${tab === 'about' ? 'active' : ''}`} data-label="About" onClick={() => changeTab('about')}>
           About
         </button>
-        <button className={`tab ${tab === 'support' ? 'active' : ''}`} data-label="Support Me" onClick={() => setTab('support')}>
+        <button className={`tab ${tab === 'support' ? 'active' : ''}`} data-label="Support Me" onClick={() => changeTab('support')}>
           Support Me
         </button>
       </div>
@@ -235,7 +243,7 @@ const App = () => {
             value={settings.secondaryLanguage}
             onChange={code => update({ secondaryLanguage: code })}
           />
-          <div className="app-footer">Changes apply on your next video load.</div>
+          <div className="app-footer">Changes should apply after a few seconds</div>
         </>
       )}
 
@@ -386,7 +394,7 @@ const App = () => {
                   title="Listen (original)"
                   onClick={() => speakText(entry.word, entry.sourceLang)}
                 >
-                  🔊
+                  <img src={soundwaveIcon} alt="Play pronunciation" className="overheard-speaker-icon" />
                 </button>
                 <span className="history-arrow">→</span>
                 <span className="history-translation">{entry.translation}</span>
@@ -395,7 +403,7 @@ const App = () => {
                   title="Listen (translation)"
                   onClick={() => speakText(entry.translation, entry.targetLang)}
                 >
-                  🔊
+                  <img src={soundwaveIcon} alt="Play pronunciation" className="overheard-speaker-icon" />
                 </button>
               </div>
               <span className="history-time">{timeAgo(entry.timestamp)}</span>
@@ -431,7 +439,7 @@ const App = () => {
       {tab === 'support' && (
         <div className="support-tab">
           <p className="support-text">
-            Overheard is completely free to use. If it has been helping you learn a language, any donation will motivate me even more to continue this project.
+            Overheard is completely free to use. If it has been helping you learn a language consider making a donation. This will motivate me even more to continue this project.
           </p>
           <button
             className="donate-btn"

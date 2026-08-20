@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { CaptionStyle, OverlayLayout } from '../shared/storage';
 import { getScriptFontInfo } from '../shared/scriptFonts';
 import { speakText } from '../shared/speech';
+import soundwaveIcon from '../assets/soundwave.svg';
 
 interface Props {
   primaryText: string;
@@ -315,7 +316,11 @@ const SubtitleOverlay: React.FC<Props> = ({
                   title="Listen (original)"
                   onClick={() => speakText(popover.word, popover.sourceLang, speechVolume)}
                 >
-                  🔊
+                  <img
+                    src={soundwaveIcon}
+                    alt="Play pronunciation"
+                    style={{ width: 20, height: 20, verticalAlign: 'middle', filter: 'brightness(0) invert(1)', opacity: 0.85, cursor: 'pointer' }}
+                  />
                 </button>
               </div>
 
@@ -336,7 +341,11 @@ const SubtitleOverlay: React.FC<Props> = ({
                     title="Listen (translation)"
                     onClick={() => speakText(popover.translation!, popover.targetLang, speechVolume)}
                   >
-                    🔊
+                    <img
+                      src={soundwaveIcon}
+                      alt="Play pronunciation"
+                      style={{ width: 20, height: 20, verticalAlign: 'middle', filter: 'brightness(0) invert(1)', opacity: 0.85, cursor: 'pointer' }}
+                    />
                   </button>
                 )}
               </div>
