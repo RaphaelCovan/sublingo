@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { CaptionStyle, OverlayLayout } from '../shared/storage';
+import { getScriptFontInfo } from '../shared/scriptFonts';
+import { speakText } from '../shared/speech';
 
 interface Props {
   primaryText: string;
@@ -11,11 +13,12 @@ interface Props {
   primaryLanguage: string;
   secondaryLanguage: string;
   onWordClick: (word: string, sourceLang: string, targetLang: string) => Promise<string | null>;
+  speechVolume: number;
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const CLICK_THRESHOLD_PX = 6;
-const POPOVER_DISMISS_MS = 4500;
+const POPOVER_DISMISS_MS = 6000;
 
 const makeOutline = (color: string, width: number) => {
   if (width <= 0) return 'none';
@@ -27,16 +30,26 @@ const makeOutline = (color: string, width: number) => {
   return offsets.map(([x, y]) => `${x}px ${y}px 0 ${color}`).join(', ');
 };
 
-// Strips leading/trailing punctuation while keeping letters/numbers from
-// any script (unicode-aware), so a word is clickable regardless of language.
 const cleanWord = (raw: string) => raw.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+
+const combineFontFamily = (base: string, langCode: string): string => {
+  const scriptInfo = getScriptFontInfo(langCode);
+  return scriptInfo ? `${base}, ${scriptInfo.fontFamily}` : base;
+};
+
+const resolveFontWeight = (defaultWeight: number, langCode: string): number => {
+  const scriptInfo = getScriptFontInfo(langCode);
+  return scriptInfo ? scriptInfo.fontWeight : defaultWeight;
+};
 
 interface Popover {
   word: string;
+  sourceLang: string;
   translation: string | null;
   loading: boolean;
   x: number;
   y: number;
+  targetLang: string;
 }
 
 interface ClickCandidate {
@@ -47,7 +60,7 @@ interface ClickCandidate {
 
 const SubtitleOverlay: React.FC<Props> = ({
   primaryText, secondaryText, captionStyle, fontSize, layout, onLayoutChange,
-  primaryLanguage, secondaryLanguage, onWordClick,
+  primaryLanguage, secondaryLanguage, onWordClick, speechVolume,
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
@@ -77,8 +90,6 @@ const SubtitleOverlay: React.FC<Props> = ({
     setPixelPos({ x: fx * bounds.width, y: fy * bounds.height });
   }, [layout.fx, layout.fy, bounds.width, bounds.height]);
 
-  // A new subtitle line means any open lookup refers to text that's no
-  // longer on screen — dismiss rather than leave it stranded.
   useEffect(() => {
     setPopover(null);
   }, [primaryText, secondaryText]);
@@ -100,27 +111,24 @@ const SubtitleOverlay: React.FC<Props> = ({
   };
 
   const handleWordActivate = (candidate: ClickCandidate, clientX: number, clientY: number) => {
-    console.log('[SubLingo] handleWordActivate called for word:', candidate.word, 'target lang:', candidate.targetLang);
     const container = document.getElementById('sublingo-root');
-    if (!container) {
-      console.warn('[SubLingo] #sublingo-root not found — cannot position popover');
-      return;
-    }
+    if (!container) return;
     const containerRect = container.getBoundingClientRect();
     const px = clientX - containerRect.left;
     const py = clientY - containerRect.top;
 
-    setPopover({ word: candidate.word, translation: null, loading: true, x: px, y: py });
+    setPopover({
+      word: candidate.word,
+      sourceLang: candidate.sourceLang,
+      translation: null,
+      loading: true,
+      x: px,
+      y: py,
+      targetLang: candidate.targetLang,
+    });
 
     onWordClick(candidate.word, candidate.sourceLang, candidate.targetLang).then((translation) => {
-      console.log('[SubLingo] Translation resolved:', candidate.word, '->', translation);
-      setPopover(prev => {
-        if (!prev || prev.word !== candidate.word) {
-          console.warn('[SubLingo] Popover was cleared before translation arrived (likely a subtitle line change mid-request)');
-          return prev;
-        }
-        return { ...prev, translation, loading: false };
-      });
+      setPopover(prev => (prev && prev.word === candidate.word ? { ...prev, translation, loading: false } : prev));
     });
   };
 
@@ -139,7 +147,6 @@ const SubtitleOverlay: React.FC<Props> = ({
     setPixelPos({ x: realX, y: realY });
 
     const wordEl = (e.target as HTMLElement).closest('[data-word]') as HTMLElement | null;
-    console.log('[SubLingo] pointerdown target:', (e.target as HTMLElement).tagName, 'matched word element:', wordEl?.dataset.word ?? 'NONE');
     clickCandidate.current = wordEl
       ? {
           word: wordEl.dataset.word!,
@@ -161,18 +168,13 @@ const SubtitleOverlay: React.FC<Props> = ({
       ? Math.hypot(e.clientX - dragState.current.startX, e.clientY - dragState.current.startY)
       : Infinity;
 
-    console.log('[SubLingo] pointerup — moved:', moved.toFixed(1), 'px, candidate:', clickCandidate.current?.word ?? 'none');
-
     if (dragState.current && pixelPos && bounds.width > 0 && bounds.height > 0) {
       onLayoutChange({ fx: pixelPos.x / bounds.width, fy: pixelPos.y / bounds.height });
     }
     dragState.current = null;
 
     if (moved < CLICK_THRESHOLD_PX && clickCandidate.current) {
-      console.log('[SubLingo] Treated as CLICK — activating word lookup');
       handleWordActivate(clickCandidate.current, e.clientX, e.clientY);
-    } else if (clickCandidate.current) {
-      console.log('[SubLingo] Treated as DRAG — word lookup skipped (moved past threshold)');
     }
     clickCandidate.current = null;
   };
@@ -205,6 +207,25 @@ const SubtitleOverlay: React.FC<Props> = ({
       <style>{`
         .sublingo-word { cursor: pointer; }
         .sublingo-word:hover { text-decoration: underline; text-underline-offset: 3px; }
+        .sublingo-speaker-btn {
+          background: transparent;
+          border: none;
+          color: inherit;
+          cursor: pointer;
+          padding: 0 0 0 8px;
+          font-size: 15px;
+          line-height: 1;
+          pointer-events: auto;
+          vertical-align: middle;
+          opacity: 0.85;
+        }
+        .sublingo-speaker-btn:hover { opacity: 1; }
+        .sublingo-popover-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          white-space: nowrap;
+        }
       `}</style>
       <div
         ref={boxRef}
@@ -233,7 +254,8 @@ const SubtitleOverlay: React.FC<Props> = ({
           <div style={{
             color: captionStyle.primaryColor,
             fontSize: '1em',
-            fontWeight: 700,
+            fontWeight: resolveFontWeight(700, primaryLanguage),
+            fontFamily: combineFontFamily(captionStyle.fontFamily, primaryLanguage),
             lineHeight: 1.3,
             textShadow: makeOutline(captionStyle.primaryBorderColor, captionStyle.borderWidth),
           }}>
@@ -244,7 +266,8 @@ const SubtitleOverlay: React.FC<Props> = ({
           <div style={{
             color: captionStyle.secondaryColor,
             fontSize: '0.7em',
-            fontWeight: 600,
+            fontWeight: resolveFontWeight(600, secondaryLanguage),
+            fontFamily: combineFontFamily(captionStyle.fontFamily, secondaryLanguage),
             lineHeight: 1.3,
             marginTop: '0.1em',
             textShadow: makeOutline(captionStyle.secondaryBorderColor, captionStyle.borderWidth),
@@ -265,17 +288,60 @@ const SubtitleOverlay: React.FC<Props> = ({
             border: '1px solid rgba(255,255,255,0.15)',
             borderRadius: '8px',
             padding: '10px 16px',
-            fontSize: '18px',
-            fontWeight: 600,
             fontFamily: captionStyle.fontFamily,
             color: '#fff',
             maxWidth: '320px',
-            pointerEvents: 'none',
             zIndex: 10,
             boxShadow: '0 6px 16px rgba(0,0,0,0.45)',
           }}
         >
-          {popover.loading ? '…' : (popover.translation ?? 'No translation found')}
+          {popover.loading ? (
+            <span style={{ fontSize: '18px' }}>…</span>
+          ) : (
+            <>
+              {/* Original word — smaller, muted, on top, Google Translate-style */}
+              <div
+                className="sublingo-popover-row"
+                style={{
+                  fontSize: '13px',
+                  color: '#aaa',
+                  fontWeight: resolveFontWeight(500, popover.sourceLang),
+                  fontFamily: combineFontFamily(captionStyle.fontFamily, popover.sourceLang),
+                }}
+              >
+                <span>{popover.word}</span>
+                <button
+                  className="sublingo-speaker-btn"
+                  title="Listen (original)"
+                  onClick={() => speakText(popover.word, popover.sourceLang, speechVolume)}
+                >
+                  🔊
+                </button>
+              </div>
+
+              {/* Translation — larger, bold, below */}
+              <div
+                className="sublingo-popover-row"
+                style={{
+                  fontSize: '18px',
+                  fontWeight: resolveFontWeight(600, popover.targetLang),
+                  fontFamily: combineFontFamily(captionStyle.fontFamily, popover.targetLang),
+                  marginTop: '2px',
+                }}
+              >
+                <span>{popover.translation ?? 'No translation found'}</span>
+                {popover.translation && (
+                  <button
+                    className="sublingo-speaker-btn"
+                    title="Listen (translation)"
+                    onClick={() => speakText(popover.translation!, popover.targetLang, speechVolume)}
+                  >
+                    🔊
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </>

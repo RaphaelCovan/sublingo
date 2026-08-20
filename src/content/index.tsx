@@ -35,6 +35,7 @@ const requestTranslation = (word: string, sourceLang: string, targetLang: string
 
 const App = () => {
   const [displayPrimary, setDisplayPrimary] = useState('');
+  const [speechVolume, setSpeechVolume] = useState(1);
   const [displaySecondary, setDisplaySecondary] = useState('');
   const [isEnabled, setEnabled] = useState(true);
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(DEFAULT_CAPTION_STYLE);
@@ -48,6 +49,7 @@ const App = () => {
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingMatcher = useRef<((url: string) => boolean) | null>(null);
   const pendingTracksResolve = useRef<((tracks: LiveTrack[]) => void) | null>(null);
+  const handleVolumeChangeRef = useRef<(() => void) | null>(null);
 
   const getLiveTracks = (): Promise<LiveTrack[]> => {
     return new Promise((resolve) => {
@@ -180,11 +182,12 @@ const App = () => {
   useEffect(() => {
     let currentVideo: HTMLVideoElement | null = null;
     let handleTimeUpdate: (() => void) | null = null;
-
+    
     const attachToVideo = () => {
       const video = adapter.getVideoElement();
       if (!video || video === currentVideo) return;
       if (currentVideo && handleTimeUpdate) currentVideo.removeEventListener('timeupdate', handleTimeUpdate);
+      if (currentVideo && handleVolumeChangeRef.current) currentVideo.removeEventListener('volumechange', handleVolumeChangeRef.current);
 
       currentVideo = video;
       handleTimeUpdate = () => {
@@ -193,8 +196,15 @@ const App = () => {
         setDisplaySecondary(secondaryText);
       };
       video.addEventListener('timeupdate', handleTimeUpdate);
-    };
 
+      const handleVolumeChange = () => {
+        setSpeechVolume(video.muted ? 0 : video.volume);
+      };
+      handleVolumeChangeRef.current = handleVolumeChange;
+      video.addEventListener('volumechange', handleVolumeChange);
+      handleVolumeChange();
+    };
+    
     const handleNavigate = () => {
       console.log('[SubLingo] yt-navigate-finish — reloading subtitles for new video');
       engine.current.setPrimaryEntries([]);
@@ -268,6 +278,7 @@ const App = () => {
       primaryLanguage={primaryLangCode}
       secondaryLanguage={secondaryLangCode}
       onWordClick={handleWordClick}
+      speechVolume={speechVolume}
     />
   );
 };

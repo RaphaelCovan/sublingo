@@ -354,3 +354,19 @@
   padding-top: 0;
   border-top: none;
 }
+
+.picker-native-name {
+  color: #777;
+  font-weight: 400;
+}
+
+.history-speaker-btn {
+  background: transparent;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+.history-speaker-btn:hover { color: #3ea6ff; }

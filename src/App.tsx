@@ -8,6 +8,11 @@ import type { Language } from './shared/languages';
 import { KOFI_DONATE_URL } from './shared/donation';
 import { GITHUB_REPO_URL, DEVELOPER_HANDLE } from './shared/links';
 import './App.css';
+import { speakText } from './shared/speech';
+
+// Strips accents/diacritics for comparison, so "francais" still matches
+// "Français" — cheap addition that meaningfully helps search.
+const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 const LanguagePicker = ({
   label,
@@ -24,7 +29,10 @@ const LanguagePicker = ({
 
   const selected = LANGUAGES.find((l: Language) => l.code === value);
   const filtered = query
-    ? LANGUAGES.filter((l: Language) => l.name.toLowerCase().includes(query.toLowerCase()))
+    ? LANGUAGES.filter((l: Language) => {
+        const q = normalize(query);
+        return normalize(l.name).includes(q) || normalize(l.nativeName).includes(q);
+      })
     : LANGUAGES;
 
   useEffect(() => {
@@ -66,6 +74,9 @@ const LanguagePicker = ({
               }}
             >
               {lang.name}
+              {lang.nativeName.toLowerCase() !== lang.name.toLowerCase() && (
+                <span className="picker-native-name"> — {lang.nativeName}</span>
+              )}
             </div>
           ))}
         </div>
@@ -358,30 +369,44 @@ const App = () => {
       )}
 
       {tab === 'history' && (
-        <div className="history-tab">
-          {settings.wordHistory.length === 0 ? (
-            <p className="support-text">
-              No words looked up yet. Tap a word in the subtitles on YouTube to see its translation here.
-            </p>
-          ) : (
-            <>
-              <div className="history-list">
-                {settings.wordHistory.map((entry, i) => (
-                  <div key={i} className="history-item">
-                    <div className="history-words">
-                      <span className="history-word">{entry.word}</span>
-                      <span className="history-arrow">→</span>
-                      <span className="history-translation">{entry.translation}</span>
-                    </div>
-                    <span className="history-time">{timeAgo(entry.timestamp)}</span>
-                  </div>
-                ))}
+  <div className="history-tab">
+    {settings.wordHistory.length === 0 ? (
+      <p className="support-text">
+        No words looked up yet. Tap a word in the subtitles on YouTube to see its translation here.
+      </p>
+    ) : (
+      <>
+        <div className="history-list">
+          {settings.wordHistory.map((entry, i) => (
+            <div key={i} className="history-item">
+              <div className="history-words">
+                <span className="history-word">{entry.word}</span>
+                <button
+                  className="history-speaker-btn"
+                  title="Listen (original)"
+                  onClick={() => speakText(entry.word, entry.sourceLang)}
+                >
+                  🔊
+                </button>
+                <span className="history-arrow">→</span>
+                <span className="history-translation">{entry.translation}</span>
+                <button
+                  className="history-speaker-btn"
+                  title="Listen (translation)"
+                  onClick={() => speakText(entry.translation, entry.targetLang)}
+                >
+                  🔊
+                </button>
               </div>
-              <button className="reset-btn" onClick={handleClearHistory}>Clear history</button>
-            </>
-          )}
+              <span className="history-time">{timeAgo(entry.timestamp)}</span>
+            </div>
+          ))}
         </div>
-      )}
+        <button className="reset-btn" onClick={handleClearHistory}>Clear history</button>
+      </>
+    )}
+  </div>
+)}
 
       {tab === 'about' && (
         <div className="about-section about-section--tab">
