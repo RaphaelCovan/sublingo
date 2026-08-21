@@ -43,7 +43,7 @@ Because Overheard relies entirely on captions YouTube itself provides:
 
 The easiest way to get Overheard is straight from the Chrome Web Store:
 
-**[Install SubLingo](CHROME_WEB_STORE_LINK_HERE)**
+**[Install Overheard](CHROME_WEB_STORE_LINK_HERE)**
 
 Once installed, open any YouTube video and the SubLingo overlay will appear automatically once captions are available.
 
